@@ -1,12 +1,13 @@
 """
 @ File name: rrcf_cls.py
-@ Version: 1.0
-@ Last update: 2019.Sep.17
+@ Version: 1.1
+@ Last update: 2019.Sep.19
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
 import rrcf
 import timeit
+import pandas as pd
 from inspect import getframeinfo, stack
 
 
@@ -30,15 +31,35 @@ def _debug_info(message, m_type='INFO'):
 
 class RRCF(object):
     def __init__(self, num_trees, sequences, leaves_size):
+        """Create RRCF object that contains train and emit anomaly scores.
+
+        Args:
+            :param num_trees: An integer. The number represents number of trees to train.
+            :param sequences: An integer. The input sequences of data. Note that if the sequences size is too small,
+                then the random cut forest is more sensitive to small fluctuations in the data,
+                However, if the shingle size is too large, then smaller scale anomalies might be lost.
+            :param leaves_size: An integer. This parameter dictates how many randomly sampled training data points are sent
+                to each tree.
+        """
         self.num_trees = num_trees
         self.sequences = sequences
         self.leaves_size = leaves_size
+        self.q_index_keys = Queue(size=self.leaves_size)
         self.last_index = None
         self.forest = None
-        self.q_index_keys = Queue(size=self.leaves_size)
+        self.threshold = None
 
-    def train_rrcf(self, date_time, data, timer=True):
-        """[Debug] Need to be tested"""
+    def train_rrcf(self, date_time, data, timer=False):
+        """
+        Training the RRCF(Robust Random Cut Forest) model using given data.
+        Args:
+            :param date_time: A Datatime object. Date and time for data recorded.
+            :param data: A Numpy object. The n-dimension data for input.
+            :param timer: A Boolean. Returns training time.
+            :return:
+                - avg_codisp: A dictionary. The Collusive displacement(anomaly score)
+                - training time
+        """
         if self.forest is not None:
             flag = input("[@] Warning:\n"
                          "\tForest is already exist. Do you want to override? y/[n]: ") or 'n'
@@ -83,7 +104,16 @@ class RRCF(object):
         else:
             return avg_codisp
 
-    def anomaly_score(self, date, data, with_date=True):
+    def anomaly_score(self, date, data, with_date=False):
+        """
+        Compute anomaly score using trained model.
+        :param date: A Datetime object. Date and time for request anomaly score.
+        :param data: A Numpy array. The n-dimension data to get anomaly score.
+        :param with_date: A Boolean. Returns date if it is True.
+        :return:
+            - avg_codisp: A Float. The Collusive displacement(anomaly score).
+            - date
+        """
         if self.forest is None:
             _debug_info("You SHOULD train the forest first. Program exit..", m_type="ERROR")
             raise SystemExit()
@@ -127,6 +157,30 @@ class RRCF(object):
             return [date[-1], avg_codisp]
         else:
             return avg_codisp
+
+    def calc_threshold(self, score, q, with_data=False):
+        """
+        Computing the threshold according to given quantile.
+        :param score: A Dictionary. The collected anomaly scores.
+        :param q: A float. Quantile value (0 < q < 1)
+        :param with_data: A Boolean. Returns the original data with threshold.
+        :return:
+            - threshold
+            - anomaly_result
+        """
+
+        if q < 0 or q > 1:
+            _debug_info("Quantile value \'q\' should be range in 0 < q < 1", m_type="ERROR")
+            raise SystemExit()
+
+        sdf = pd.DataFrame(score.items(), columns=["DATE", "Anomaly_score"])
+        threshold = sdf.quantile(q=q)
+
+        if with_data:
+            anomaly_result = sdf[sdf['Anomaly_score'] >= threshold['Anomaly_score']]
+            return threshold['Anomaly_score'], anomaly_result
+        else:
+            return threshold['Anomaly_score']
 
 
 class Queue(object):
