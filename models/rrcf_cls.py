@@ -1,6 +1,6 @@
 """
 @ File name: rrcf_cls.py
-@ Version: 1.1
+@ Version: 1.1.1
 @ Last update: 2019.Sep.19
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
@@ -175,6 +175,7 @@ class RRCF(object):
 
         sdf = pd.DataFrame(score.items(), columns=["DATE", "Anomaly_score"])
         threshold = sdf.quantile(q=q)
+        self.threshold = threshold['Anomaly_score']
 
         if with_data:
             anomaly_result = sdf[sdf['Anomaly_score'] >= threshold['Anomaly_score']]
