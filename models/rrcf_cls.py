@@ -1,11 +1,12 @@
 """
 @ File name: rrcf_cls.py
-@ Version: 1.1.1
-@ Last update: 2019.Sep.19
+@ Version: 1.2
+@ Last update: 2019.Sep.20
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
-import rrcf
+import models.rrcf as rrcf
+import models.shingle as shingle
 import timeit
 import pandas as pd
 from inspect import getframeinfo, stack
@@ -76,7 +77,7 @@ class RRCF(object):
             self.forest.append(tree)
 
         # NOTE: Build a sequences points.
-        points = rrcf.shingle(data, size=self.sequences)
+        points = shingle.shingle(data, size=self.sequences)
 
         # NOTE: Initialize the average of Collusive Displacement(CoDisp).
         avg_codisp = {}
