@@ -1,3 +1,11 @@
+"""
+@ File name: training_module.py
+@ Version: 1.0
+@ Last update: 2019.Sep.20
+@ Author: DH.KIM
+@ Company: Ntels Co., Ltd
+"""
+
 import pandas as pd
 import pickle
 import os
