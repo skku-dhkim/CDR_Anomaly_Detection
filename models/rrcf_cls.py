@@ -1,8 +1,8 @@
 """
 @ File name: rrcf_cls.py
-@ Version: 1.2
-@ Last update: 2019.Sep.20
-@ Author: DH.KIM
+@ Version: 1.3
+@ Last update: 2019.Sep.24
+@ Author: DH.KIM, YH.HU
 @ Company: Ntels Co., Ltd
 """
 import models.rrcf as rrcf
@@ -46,7 +46,6 @@ class RRCF(object):
         self.sequences = sequences
         self.leaves_size = leaves_size
         self.q_index_keys = Queue(size=self.leaves_size)
-        self.last_index = None
         self.forest = None
         self.threshold = None
 
@@ -81,13 +80,18 @@ class RRCF(object):
 
         # NOTE: Initialize the average of Collusive Displacement(CoDisp).
         avg_codisp = {}
+        remove_index = None
 
         for index, point in enumerate(points):
             # NOTE: For each tree in the forest...
+            if self.q_index_keys.full():
+                # NOTE: If leaves are full, get first index in queue(FIFO).
+                remove_index = self.q_index_keys.get()
+
             for tree in self.forest:
                 # NOTE: If tree is above permitted size, drop the oldest point (FIFO)
                 if len(tree.leaves) >= self.leaves_size:
-                    tree.forget_point(index - self.leaves_size)
+                    tree.forget_point(remove_index)
                 # NOTE: Insert the new point into the tree
                 tree.insert_point(point, index=index)
 
@@ -95,7 +99,9 @@ class RRCF(object):
                 if not date_time[index+self.sequences-1] in avg_codisp:
                     avg_codisp[date_time[index+self.sequences-1]] = 0
                 avg_codisp[date_time[index+self.sequences-1]] += tree.codisp(index) / self.num_trees
-            self.last_index = index
+
+            # NOTE: Insert new points
+            self.q_index_keys.put(index)
 
         # NOTE: Timer for function execution time.
         train_end = timeit.default_timer()
@@ -122,20 +128,12 @@ class RRCF(object):
         avg_codisp = 0
         insert_index = -1
 
-        # NOTE: Initialize Old queue once before scoring starts.
-        if self.q_index_keys.empty():
-            if self.last_index >= self.leaves_size:
-                l_index_keys = [k+(self.last_index-self.leaves_size+1) for k in range(self.leaves_size)]
-            else:
-                l_index_keys = [k for k in range(self.last_index+1)]
-            self.q_index_keys.migrate(l_index_keys)
-
         # NOTE: Get index
         if self.q_index_keys.full():
             index = self.q_index_keys.get()
         else:
-            self.last_index += 1
-            index = self.last_index
+            index = self.q_index_keys.l_index[-1]
+            index += 1
 
         # NOTE: Adding a node to the tree
         for tree in self.forest:
