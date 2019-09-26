@@ -1,7 +1,7 @@
 """
 @ File name: rrcf_cls.py
-@ Version: 1.3
-@ Last update: 2019.Sep.24
+@ Version: 1.3.1
+@ Last update: 2019.Sep.26
 @ Author: DH.KIM, YH.HU
 @ Company: Ntels Co., Ltd
 """
@@ -119,7 +119,7 @@ class RRCF(object):
         :param with_date: A Boolean. Returns date if it is True.
         :return:
             - avg_codisp: A Float. The Collusive displacement(anomaly score).
-            - date
+            - date: A Numpy array. The last date of anomaly score occurs.
         """
         if self.forest is None:
             _debug_info("You SHOULD train the forest first. Program exit..", m_type="ERROR")
@@ -153,7 +153,7 @@ class RRCF(object):
         self.q_index_keys.put(insert_index)
 
         if with_date is True:
-            return [date[-1], avg_codisp]
+            return [date.to_numpy()[-1], avg_codisp]
         else:
             return avg_codisp
 
