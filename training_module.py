@@ -1,6 +1,6 @@
 """
 @ File name: training_module.py
-@ Version: 1.0
+@ Version: 1.0.1
 @ Last update: 2019.Sep.20
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
@@ -68,7 +68,7 @@ def train_models(data, num_of_trees, sequences, num_of_leaves, write_file=False)
 
         with open(instance_path + "hyper_parameter.txt", "w") as file:
             file.write("number of trees: {}\n".format(o_rrcf.num_trees))
-            file.write("number of leaves: {}\n".format(o_rrcf.num_trees))
+            file.write("number of leaves: {}\n".format(o_rrcf.leaves_size))
             file.write("sequences: {}\n".format(o_rrcf.sequences))
             file.write("required time: {}\n".format(ftime))
 
@@ -93,7 +93,7 @@ Hyper parameters for RRCF algorithm.
 NUM_OF_TREES = 80
 NUM_OF_LEAVES = 864
 QUANTILE = 0.99
-SEQUENCES = 6
+SEQUENCES = 1
 
 l_pgw_ip = pgw_ip.l_pgw_ip
 
