@@ -1,7 +1,7 @@
 """
 @ File name: rrcf_cls.py
-@ Version: 1.3.1
-@ Last update: 2019.Sep.26
+@ Version: 1.4.0
+@ Last update: 2019.Oct.22
 @ Author: DH.KIM, YH.HU
 @ Company: Ntels Co., Ltd
 """
@@ -9,25 +9,8 @@ import models.rrcf as rrcf
 import models.shingle as shingle
 import timeit
 import pandas as pd
-from inspect import getframeinfo, stack
-
-
-def _debug_info(message, m_type='INFO'):
-    insp = getframeinfo(stack()[1][0])
-    if m_type == "INFO":
-        print("[*] INFO:\n"
-              "\t - File: {}:{}\n"
-              "\t - Message: {}".format(insp.filename, insp.lineno, message))
-    elif m_type == "WARNING":
-        print("[@] WARNING:\n"
-              "\t - File: {}:{}\n"
-              "\t - Message: {}".format(insp.filename, insp.lineno, message))
-    elif m_type == "ERROR":
-        print("[!] ERROR:\n"
-              "\t - File: {}:{}\n"
-              "\t - Message: {}".format(insp.filename, insp.lineno, message))
-    else:
-        raise ValueError("Invalid input vlaue \'m_type\': {}".format(m_type))
+import utils.marker as marker
+from utils.queue import Queue
 
 
 class RRCF(object):
@@ -45,7 +28,7 @@ class RRCF(object):
         self.num_trees = num_trees
         self.sequences = sequences
         self.leaves_size = leaves_size
-        self.q_index_keys = Queue(size=self.leaves_size)
+        self.index_queue = Queue(size=self.leaves_size)
         self.forest = None
         self.threshold = None
 
@@ -84,9 +67,9 @@ class RRCF(object):
 
         for index, point in enumerate(points):
             # NOTE: For each tree in the forest...
-            if self.q_index_keys.full():
+            if self.index_queue.full():
                 # NOTE: If leaves are full, get first index in queue(FIFO).
-                remove_index = self.q_index_keys.get()
+                remove_index = self.index_queue.get()
 
             for tree in self.forest:
                 # NOTE: If tree is above permitted size, drop the oldest point (FIFO)
@@ -101,7 +84,7 @@ class RRCF(object):
                 avg_codisp[date_time[index+self.sequences-1]] += tree.codisp(index) / self.num_trees
 
             # NOTE: Insert new points
-            self.q_index_keys.put(index)
+            self.index_queue.put(index)
 
         # NOTE: Timer for function execution time.
         train_end = timeit.default_timer()
@@ -122,17 +105,27 @@ class RRCF(object):
             - date: A Numpy array. The last date of anomaly score occurs.
         """
         if self.forest is None:
-            _debug_info("You SHOULD train the forest first. Program exit..", m_type="ERROR")
+            marker.debug_info("There is no pre-trained model. It will train the new model.", m_type="WARNING")
             raise SystemExit()
 
         avg_codisp = 0
         insert_index = -1
 
         # NOTE: Get index
-        if self.q_index_keys.full():
-            index = self.q_index_keys.get()
+        if self.index_queue.full():
+            # NOTE: If queue is full, remove first index.
+            index = self.index_queue.get()
+        elif self.index_queue.empty():
+            # NOTE: If queue is empty, initialize the index.
+            index = 0
+            self.forest = []
+            # NOTE: Build a forest.
+            for _ in range(self.num_trees):
+                tree = rrcf.RCTree()
+                self.forest.append(tree)
         else:
-            index = self.q_index_keys.l_index[-1]
+            # NOTE: Get last number of index queue.
+            index = self.index_queue.indexList[-1]
             index += 1
 
         # NOTE: Adding a node to the tree
@@ -146,11 +139,11 @@ class RRCF(object):
             avg_codisp += tree.codisp(insert_index) / self.num_trees
 
         if insert_index <= -1:
-            _debug_info("Invalid \'insert_index\' value. We have \'{}\'".format(-1), m_type="ERROR")
+            marker.debug_info("Invalid \'insert_index\' value. We have \'{}\'".format(-1), m_type="ERROR")
             raise SystemExit()
 
         # NOTE: Inserting new index number
-        self.q_index_keys.put(insert_index)
+        self.index_queue.put(insert_index)
 
         if with_date is True:
             return [date.to_numpy()[-1], avg_codisp]
@@ -169,7 +162,7 @@ class RRCF(object):
         """
 
         if q < 0 or q > 1:
-            _debug_info("Quantile value \'q\' should be range in 0 < q < 1", m_type="ERROR")
+            marker.debug_info("Quantile value \'q\' should be range in 0 < q < 1", m_type="ERROR")
             raise SystemExit()
 
         sdf = pd.DataFrame(score.items(), columns=["DATE", "Anomaly_score"])
@@ -182,43 +175,3 @@ class RRCF(object):
         else:
             return threshold['Anomaly_score']
 
-
-class Queue(object):
-    def __init__(self, size=0):
-        self.size = size
-        self.l_index = []
-
-    def put(self, index):
-        if self.size != 0:
-            if len(self.l_index) + 1 > self.size:
-                _debug_info("Buffer overflow. Queue should not exceed the size.", m_type="ERROR")
-                raise SystemExit()
-        self.l_index.append(index)
-
-    def get(self):
-        if len(self.l_index) == 0:
-            _debug_info("Queue is empty", m_type="ERROR")
-            raise SystemExit()
-        value = self.l_index[0]
-        self.l_index.remove(value)
-        return value
-
-    def empty(self):
-        if len(self.l_index) != 0:
-            return False
-        else:
-            return True
-
-    def full(self):
-        if self.size == 0:
-            _debug_info("Queue object has no buffer limit. The \'full\' method is useless in this case.",
-                        m_type="WARNING")
-            return None
-        else:
-            if len(self.l_index) >= self.size:
-                return True
-            else:
-                return False
-
-    def migrate(self, prev_index):
-        self.l_index = prev_index

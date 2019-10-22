@@ -1,7 +1,7 @@
 """
 @ File name: training_module.py
-@ Version: 1.0.1
-@ Last update: 2019.Sep.20
+@ Version: 1.1.0
+@ Last update: 2019.Oct.22
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -11,36 +11,17 @@ import pickle
 import os
 import dill
 import glob
-import config.pgw_ip_address as pgw_ip
+import config.pgw_ip_address as pgw_ip_list
+import utils.marker as marker
+import argparse
 from models.rrcf_cls import RRCF
-from inspect import getframeinfo, stack
-
-
-def _debug_info(message, m_type='INFO'):
-    insp = getframeinfo(stack()[1][0])
-    if m_type == "INFO":
-        print("[*] INFO:\n"
-              "\t - File: {}:{}\n"
-              "\t - Message: {}".format(insp.filename, insp.lineno, message))
-    elif m_type == "WARNING":
-        print("[@] WARNING:\n"
-              "\t - File: {}:{}\n"
-              "\t - Message: {}".format(insp.filename, insp.lineno, message))
-    elif m_type == "ERROR":
-        print("[!] ERROR:\n"
-              "\t - File: {}:{}\n"
-              "\t - Message: {}".format(insp.filename, insp.lineno, message))
-        raise SystemExit()
-    else:
-        raise ValueError("Invalid input vlaue \'m_type\': {}".format(m_type))
 
 
 def data_separation(pgw_ip, svc_type):
-    '''
+    """
     Data load from csv file.
-    '''
-    df = pd.read_csv("./data/{}/{}.csv".format(pgw_ip, svc_type),
-                     names=['DTmm', 'Real_Up', 'Real_Dn', 'Free_Up', 'Free_Dn'])
+    """
+    df = pd.read_csv("./data/{}/{}.csv".format(pgw_ip, svc_type))
     df['DTmm'] = pd.to_datetime(df['DTmm'], format='%Y-%m-%d %H:%M')
     df_train = df.loc[df['DTmm'] < '2019-08-01']
     df_test = df.loc[df['DTmm'] >= '2019-08-01'].reset_index(drop=True)
@@ -48,22 +29,22 @@ def data_separation(pgw_ip, svc_type):
     return df_train, df_test
 
 
-def train_models(data, num_of_trees, sequences, num_of_leaves, write_file=False):
+def train_models(data, num_of_trees, sequences, num_of_leaves, quantile, write_file=False):
     date = data['data']['DTmm']
-    train_data = data['data'][['Real_Up', 'Real_Dn', 'Free_Up', 'Free_Dn']]
+    train_data = data['data'][['Real_Up', 'Real_Dn']]
     train_data = train_data.to_numpy()
     o_rrcf = RRCF(num_trees=num_of_trees, sequences=sequences, leaves_size=num_of_leaves)
     score, ftime = o_rrcf.train_rrcf(date, train_data, timer=True)
-    _debug_info("Required time: {}".format(ftime))
+    marker.debug_info("Required time: {}".format(ftime))
 
-    _ = o_rrcf.calc_threshold(score, QUANTILE, with_data=False)
-    _debug_info("Threshold: {}".format(o_rrcf.threshold))
+    _ = o_rrcf.calc_threshold(score, quantile, with_data=False)
+    marker.debug_info("Threshold: {}".format(o_rrcf.threshold))
 
     if write_file:
-        instance_path = "./instances/{}/{}/".format(data['pgw_ip'], data['svc_type'])
+        instance_path = "./{}/{}/{}/".format(INSTANCE_DIR, data['pgw_ip'], data['svc_type'])
 
         if not os.path.exists(instance_path):
-            _debug_info("Instance directory is not exist. Creating one...")
+            marker.debug_info("Instance directory is not exist. Creating one...")
             os.makedirs(instance_path)
 
         with open(instance_path + "hyper_parameter.txt", "w") as file:
@@ -78,50 +59,60 @@ def train_models(data, num_of_trees, sequences, num_of_leaves, write_file=False)
         with open(instance_path + "anomaly_scores.dict", "wb") as file:
             dill.dump(score, file)
 
-    return score, o_rrcf
-
 
 def load(pgw_ip, svc_type):
-    with open('./instances/{}/{}/model.pkl'.format(pgw_ip, svc_type), "rb") as file:
+    with open('./{}/{}/{}/model.pkl'.format(INSTANCE_DIR, pgw_ip, svc_type), "rb") as file:
         rrcf_object = pickle.load(file)
     return rrcf_object
 
 
-'''
-Hyper parameters for RRCF algorithm.
-'''
-NUM_OF_TREES = 80
-NUM_OF_LEAVES = 864
-QUANTILE = 0.99
-SEQUENCES = 1
+def main(num_of_trees, num_of_leaves, sequences, quantile=0.99):
+    l_pgw_ip = pgw_ip_list.l_pgw_ip
 
-l_pgw_ip = pgw_ip.l_pgw_ip
+    for pgw_ip in l_pgw_ip:
 
-for pgw_ip in l_pgw_ip:
+        marker.debug_info("Running \'pgw_ip - {}\'".format(pgw_ip))
+        l_svc_type = glob.glob("./data/{}/*.csv".format(pgw_ip))
 
-    _debug_info("Running \'pgw_ip - {}\'".format(pgw_ip))
-    l_svc_type = glob.glob("./data/{}/*.csv".format(pgw_ip))
+        for fname in l_svc_type:
 
-    for fname in l_svc_type:
+            name = fname.split('/')[-1]
+            svc_type = name.split('.')[0]
 
-        name = fname.split('/')[-1]
-        svc_type = name.split('.')[0]
+            marker.debug_info("\t \'svc_type - {}\'".format(svc_type))
 
-        _debug_info("\t \'svc_type - {}\'".format(svc_type))
+            df_train, df_test = data_separation(pgw_ip, svc_type)
 
-        df_train, df_test = data_separation(pgw_ip, svc_type)
+            if len(df_train.index) < sequences:
+                # NOTE: If there are not enough data length, it will pass
+                if os.path.exists('./error_report/'):
+                    os.mkdir('./error_report')
+                with open("./error_report/untrained_model.txt", "a") as file:
+                    file.write("{}::{}".format(pgw_ip, fname))
+                continue
 
-        if len(df_train.index) < SEQUENCES:
-            continue
+            data = {
+                'pgw_ip': pgw_ip,
+                'svc_type': svc_type,
+                'data': df_train
+            }
 
-        data = {
-            'pgw_ip': pgw_ip,
-            'svc_type': svc_type,
-            'data': df_train
-        }
+            try:
+                train_models(data, num_of_trees, sequences, num_of_leaves, quantile, write_file=True)
+            except Exception as e:
+                marker.debug_info("PGW IP: {} / SVC_TYPE: {} / Error occurs: {}".format(pgw_ip, svc_type, e))
+                continue
 
-        try:
-            s, rrcf = train_models(data, NUM_OF_TREES, SEQUENCES, NUM_OF_LEAVES, write_file=True)
-        except Exception as e:
-            _debug_info("PGW IP: {} / SVC_TYPE: {} / Error occurs: {}".format(pgw_ip, svc_type, e))
-            continue
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='CDR anomaly detector training module.')
+    parser.add_argument('--trees', type=int, help='Number of trees.(Default:80)', default=80)
+    parser.add_argument('--sequences', type=int, help='Sequences to observe.(Default: 5)', default=5)
+    parser.add_argument('--leaves', type=int, help='Leaf size to memorize.(Default: 4320)', default=4320)
+    parser.add_argument('--dir_name', type=str, help='Directory name for object', default='instances')
+
+    args = parser.parse_args()
+
+    INSTANCE_DIR = args.dir_name
+
+    main(args.trees, args.leaves, args.sequences)
