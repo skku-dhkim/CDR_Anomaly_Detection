@@ -1,7 +1,7 @@
 """
 @ File name: training_module.py
-@ Version: 1.1.0
-@ Last update: 2019.Oct.22
+@ Version: 1.1.1
+@ Last update: 2019.Oct.23
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -85,7 +85,7 @@ def main(num_of_trees, num_of_leaves, sequences, quantile=0.99):
 
             if len(df_train.index) < sequences:
                 # NOTE: If there are not enough data length, it will pass
-                if os.path.exists('./error_report/'):
+                if not os.path.exists('./error_report/'):
                     os.mkdir('./error_report')
                 with open("./error_report/untrained_model.txt", "a") as file:
                     file.write("{}::{}".format(pgw_ip, fname))
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='CDR anomaly detector training module.')
     parser.add_argument('--trees', type=int, help='Number of trees.(Default:80)', default=80)
     parser.add_argument('--sequences', type=int, help='Sequences to observe.(Default: 5)', default=5)
-    parser.add_argument('--leaves', type=int, help='Leaf size to memorize.(Default: 4320)', default=4320)
+    parser.add_argument('--leaves', type=int, help='Leaf size to memorize.(Default: 1440)', default=1440)
     parser.add_argument('--dir_name', type=str, help='Directory name for object', default='instances')
 
     args = parser.parse_args()

@@ -1,7 +1,7 @@
 """
 @ File name: marker.py
-@ Version: 1.0.0
-@ Last update: 2019.Oct.15
+@ Version: 1.0.1
+@ Last update: 2019.Oct.23
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -22,5 +22,6 @@ def debug_info(message, m_type='INFO'):
         print("[!] ERROR:\n"
               "\t - File: {}:{}\n"
               "\t - Message: {}".format(insp.filename, insp.lineno, message))
+        raise SystemExit
     else:
         raise ValueError("Invalid input vlaue \'m_type\': {}".format(m_type))

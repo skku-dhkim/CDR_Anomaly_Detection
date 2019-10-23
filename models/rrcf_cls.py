@@ -1,7 +1,7 @@
 """
 @ File name: rrcf_cls.py
-@ Version: 1.4.0
-@ Last update: 2019.Oct.22
+@ Version: 1.4.1
+@ Last update: 2019.Oct.23
 @ Author: DH.KIM, YH.HU
 @ Company: Ntels Co., Ltd
 """
@@ -97,7 +97,7 @@ class RRCF(object):
     def anomaly_score(self, date, data, with_date=False):
         """
         Compute anomaly score using trained model.
-        :param date: A Datetime object. Date and time for request anomaly score.
+        :param date: A List object. Date and time for request anomaly score.
         :param data: A Numpy array. The n-dimension data to get anomaly score.
         :param with_date: A Boolean. Returns date if it is True.
         :return:
@@ -106,7 +106,6 @@ class RRCF(object):
         """
         if self.forest is None:
             marker.debug_info("There is no pre-trained model. It will train the new model.", m_type="WARNING")
-            raise SystemExit()
 
         avg_codisp = 0
         insert_index = -1
@@ -146,7 +145,7 @@ class RRCF(object):
         self.index_queue.put(insert_index)
 
         if with_date is True:
-            return [date.to_numpy()[-1], avg_codisp]
+            return [date[-1], avg_codisp]
         else:
             return avg_codisp
 
@@ -163,9 +162,17 @@ class RRCF(object):
 
         if q < 0 or q > 1:
             marker.debug_info("Quantile value \'q\' should be range in 0 < q < 1", m_type="ERROR")
-            raise SystemExit()
+            raise SystemExit
 
-        sdf = pd.DataFrame(score.items(), columns=["DATE", "Anomaly_score"])
+        sdf = None
+
+        if type(score) == dict:
+            sdf = pd.DataFrame(score.items(), columns=["DATE", "Anomaly_score"])
+        elif type(score) == list:
+            sdf = pd.DataFrame(score, columns=["DATE", "Anomaly_score"])
+        else:
+            marker.debug_info('Invalid data type \'{}\''.format(type(score)), m_type='ERROR')
+
         threshold = sdf.quantile(q=q)
         self.threshold = threshold['Anomaly_score']
 
@@ -174,4 +181,3 @@ class RRCF(object):
             return threshold['Anomaly_score'], anomaly_result
         else:
             return threshold['Anomaly_score']
-
