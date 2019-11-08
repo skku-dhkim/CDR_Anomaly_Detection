@@ -1,7 +1,7 @@
 """
 @ File name: queue.py
-@ Version: 1.0.0
-@ Last update: 2019.Oct.15
+@ Version: 1.1.0
+@ Last update: 2019.Nov.01
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -81,3 +81,16 @@ class Queue(object):
             An Integer. Queue length.
         """
         return len(self.indexList)
+
+    def queue_status(self):
+        """
+        Returns queue status
+        :return:
+            An String: returns Queue status either Full, Empty or length
+        """
+        if self.full():
+            return 'full'
+        elif self.empty():
+            return 'empty'
+        else:
+            return str(self.queue_length())

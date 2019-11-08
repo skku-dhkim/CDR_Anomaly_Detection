@@ -88,7 +88,7 @@ def main(num_of_trees, num_of_leaves, sequences, quantile=0.99):
                 if not os.path.exists('./error_report/'):
                     os.mkdir('./error_report')
                 with open("./error_report/untrained_model.txt", "a") as file:
-                    file.write("{}::{}".format(pgw_ip, fname))
+                    file.write("{}::{}\n".format(pgw_ip, fname))
                 continue
 
             data = {
@@ -101,6 +101,8 @@ def main(num_of_trees, num_of_leaves, sequences, quantile=0.99):
                 train_models(data, num_of_trees, sequences, num_of_leaves, quantile, write_file=True)
             except Exception as e:
                 marker.debug_info("PGW IP: {} / SVC_TYPE: {} / Error occurs: {}".format(pgw_ip, svc_type, e))
+                with open("./error_report/untrained_model.txt", "a") as file:
+                    file.write("{}::{} - Error: {}\n".format(pgw_ip, fname, e))
                 continue
 
 

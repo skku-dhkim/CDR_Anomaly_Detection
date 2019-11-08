@@ -1,7 +1,7 @@
 """
 @ File name: rrcf_cls.py
-@ Version: 1.4.1
-@ Last update: 2019.Oct.23
+@ Version: 1.4.2
+@ Last update: 2019.Nov.01
 @ Author: DH.KIM, YH.HU
 @ Company: Ntels Co., Ltd
 """
@@ -174,7 +174,6 @@ class RRCF(object):
             marker.debug_info('Invalid data type \'{}\''.format(type(score)), m_type='ERROR')
 
         threshold = sdf.quantile(q=q)
-        self.threshold = threshold['Anomaly_score']
 
         if with_data:
             anomaly_result = sdf[sdf['Anomaly_score'] >= threshold['Anomaly_score']]
