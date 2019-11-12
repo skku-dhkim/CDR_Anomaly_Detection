@@ -1,7 +1,7 @@
 """
 @ File name: file_handler.py
-@ Version: 1.0.0
-@ Last update: 2019.Nov.8
+@ Version: 1.1.0
+@ Last update: 2019.Nov.12
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -12,13 +12,20 @@ import glob
 import time
 import config.file_path as fp
 import os
+import traceback
 
 from datetime import datetime, timedelta
 from utils.logger import FileLogger
 
 
-def file_handler(file, loggers):
-    df = pd.read_csv(file, delimiter='|', header=None, names=['PGW_IP', 'DTmm', 'SVC_TYPE', 'UP', 'DN'])
+def file_handler(in_file, loggers):
+    """
+    Read an original file and convert to trainable file. If finish converting, remove the original file.
+    :param in_file: A String. Input file path.
+    :param loggers: A Tuple. Loggers as format --> (logger, elogger)
+    :return: None
+    """
+    df = pd.read_csv(in_file, delimiter='|', header=None, names=['PGW_IP', 'DTmm', 'SVC_TYPE', 'UP', 'DN'])
     ip_addr = df['PGW_IP'].unique().tolist()
     svc_type = df['SVC_TYPE'].unique().tolist()
 
@@ -41,7 +48,8 @@ def file_handler(file, loggers):
         else:
             selected = selected[0]
 
-        output_path = output_path + '{}'.format(datetime.now())
+        # [*]Output file path
+        output_path = output_path + '{}.DAT'.format(datetime.now())
 
         with open(output_path, 'w') as out:
             writer = csv.writer(out, delimiter='|')
@@ -51,8 +59,10 @@ def file_handler(file, loggers):
         lg_info.info("Successfully write the file: {}".format(svc))
 
     # [*]Log
-    lg_info.info("Job is finished: {}".format(file))
-    os.remove(file)
+    lg_info.info("Job is finished: {}".format(in_file))
+
+    # [*]If clearly finished, remove original file.
+    os.remove(in_file)
 
 
 if __name__ == '__main__':
@@ -60,18 +70,23 @@ if __name__ == '__main__':
     if not os.path.exists(fp.log_dir()):
         os.makedirs(fp.log_dir())
 
+    # [*]Every day logging in different fie.
     today = datetime.now().date()
     tomorrow = today + timedelta(days=1)
 
     log_path = fp.log_dir() + 'file_handler_{}.log'.format(today)
     elog_path = fp.log_dir() + 'file_handler_error_{}.log'.format(today)
 
+    '''
+        - logger; Informative logger.
+        - elogger; error logger.
+    '''
     logger = FileLogger('file_handler_info', log_path=log_path, level='INFO').get_instance()
     elogger = FileLogger('file_handler_error', log_path=elog_path, level='WARNING').get_instance()
 
     try:
         while True:
-            # [*]Day pass by
+            # [*]If Day pass by create a new log file.
             if today == tomorrow:
                 today = tomorrow
                 tomorrow = today + timedelta(days=1)
@@ -83,8 +98,10 @@ if __name__ == '__main__':
                 logger = FileLogger('file_handler_info', log_path=log_path, level='INFO').get_instance()
                 elogger = FileLogger('file_handler_error', log_path=elog_path, level='WARNING').get_instance()
 
-            # NOTE: File read & check
+            # [*]File read & check
             file = glob.glob(fp.original_input_path() + '*.DAT')
+
+            # [*]If file exists.
             if file:
                 for f in file:
                     file_handler(f, (logger, elogger))
@@ -92,5 +109,5 @@ if __name__ == '__main__':
     except KeyboardInterrupt as ke:
         logger.info("Program exit with Keyboard interruption.")
     except Exception as e:
-        # Write in a log file. Later
-        elogger.error(e)
+        # [*]Log the errors.
+        elogger.error(traceback.format_exc())
