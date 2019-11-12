@@ -1,6 +1,6 @@
 """
 @ File name: file_handler.py
-@ Version: 1.1.0
+@ Version: 1.1.1
 @ Last update: 2019.Nov.12
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     try:
         while True:
             # [*]If Day pass by create a new log file.
-            if today == tomorrow:
+            if today >= tomorrow:
                 today = tomorrow
                 tomorrow = today + timedelta(days=1)
 
