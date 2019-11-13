@@ -105,7 +105,7 @@ class RRCF(object):
             - date: A Numpy array. The last date of anomaly score occurs.
         """
         if self.forest is None:
-            marker.debug_info("There is no pre-trained model. It will train the new model.", m_type="WARNING")
+            marker.debug_info("There is no pre-trained model. It will train the new model.", m_type="INFO")
 
         avg_codisp = 0
         insert_index = -1
