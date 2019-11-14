@@ -1,7 +1,7 @@
 """
 @ File name: file_handler.py
-@ Version: 1.1.1
-@ Last update: 2019.Nov.12
+@ Version: 1.1.2
+@ Last update: 2019.Nov.15
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -106,8 +106,10 @@ if __name__ == '__main__':
                 for f in file:
                     file_handler(f, (logger, elogger))
             time.sleep(1)
-    except KeyboardInterrupt as ke:
+    except KeyboardInterrupt:
         logger.info("Program exit with Keyboard interruption.")
-    except Exception as e:
+        raise SystemExit
+    except Exception:
         # [*]Log the errors.
         elogger.error(traceback.format_exc())
+        raise SystemExit
