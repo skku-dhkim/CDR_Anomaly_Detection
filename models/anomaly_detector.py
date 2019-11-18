@@ -94,7 +94,6 @@ class AnomalyDetector(object):
         self._logging(output_result)
 
         # [*]Write the result in a file.
-
         with open(output_path, 'w') as file:
             csv_writer = csv.writer(file, delimiter='|')
             csv_writer.writerow(final_result)
@@ -199,8 +198,8 @@ class AnomalyDetector(object):
             self.logger = FileLogger('anomaly_detector', log_path=self.log_path, level='INFO').get_instance()
 
         # [*]If Day pass by create a new log file.
+        self.today = datetime.now().date()
         if self.today >= self.tomorrow:
-            self.today = self.tomorrow
             self.tomorrow = self.today + timedelta(days=1)
 
             # [*]Log handler updates

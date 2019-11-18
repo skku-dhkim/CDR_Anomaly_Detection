@@ -1,6 +1,6 @@
 """
 @ File name: file_handler.py
-@ Version: 1.1.2
+@ Version: 1.1.3
 @ Last update: 2019.Nov.15
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
@@ -100,6 +100,7 @@ if __name__ == '__main__':
 
             # [*]File read & check
             file = glob.glob(fp.original_input_path() + '*.DAT')
+            file = sorted(file)
 
             # [*]If file exists.
             if file:

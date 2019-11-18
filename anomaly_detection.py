@@ -1,7 +1,7 @@
 """
 @ File name: anomaly_detection.py
-@ Version: 1.0.0
-@ Last update: 2019.Nov.13
+@ Version: 1.0.1
+@ Last update: 2019.Nov.18
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -139,8 +139,8 @@ def main(ip, svc, t, l, seq, q):
 
     while True:
         # [*]If Day pass by create a new log file.
+        today = datetime.now().date()
         if today >= tomorrow:
-            today = tomorrow
             tomorrow = today + timedelta(days=1)
 
             # [*]Log handler updates
