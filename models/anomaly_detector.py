@@ -1,7 +1,7 @@
 """
 @ File name: anomaly_detector.py
-@ Version: 1.0.0
-@ Last update: 2019.Nov.12
+@ Version: 1.0.1
+@ Last update: 2019.Nov.16
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -16,6 +16,8 @@ from models.rrcf_cls import RRCF
 from utils.queue import Queue
 from utils.logger import FileLogger
 from datetime import datetime, timedelta
+
+LOG_LEVEL = "INFO"
 
 
 class AnomalyDetector(object):
@@ -195,7 +197,7 @@ class AnomalyDetector(object):
         if self.log_path is None or self.logger is None:
             # [*]Create new log handler
             self.log_path = fp.svc_log_dir(self.ip, self.svc_type) + 'anomaly_detector_{}.log'.format(self.today)
-            self.logger = FileLogger('anomaly_detector', log_path=self.log_path, level='INFO').get_instance()
+            self.logger = FileLogger('anomaly_detector', log_path=self.log_path, level=LOG_LEVEL).get_instance()
 
         # [*]If Day pass by create a new log file.
         self.today = datetime.now().date()
@@ -204,7 +206,7 @@ class AnomalyDetector(object):
 
             # [*]Log handler updates
             self.log_path = fp.svc_log_dir(self.ip, self.svc_type) + 'anomaly_detector_{}.log'.format(self.today)
-            self.logger = FileLogger('file_handler_info', log_path=self.log_path, level='INFO').get_instance()
+            self.logger = FileLogger('file_handler_info', log_path=self.log_path, level=LOG_LEVEL).get_instance()
 
         self.logger.info(result)
 

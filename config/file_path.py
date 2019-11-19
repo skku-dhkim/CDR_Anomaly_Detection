@@ -34,3 +34,5 @@ def anomaly_score_dir(PGW_IP, SVC_TYPE):
     return "{}/{}/{}/anomaly_scores/".format(management_dir(), PGW_IP, SVC_TYPE)
 
 
+def run_dir():
+    return '{}/running/'.format(management_dir())

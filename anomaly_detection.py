@@ -1,7 +1,7 @@
 """
 @ File name: anomaly_detection.py
-@ Version: 1.0.1
-@ Last update: 2019.Nov.18
+@ Version: 1.1.0
+@ Last update: 2019.Nov.19
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -19,9 +19,22 @@ from models.anomaly_detector import AnomalyDetector
 from datetime import datetime, timedelta
 from utils.queue import Queue
 from utils.logger import FileLogger, StreamLogger
-
+from utils.graceful_killer import GracefulKiller
 
 SLOG_LEVEL = "WARNING"
+
+
+class Clean(GracefulKiller):
+    def __init__(self, ip, svc):
+        super().__init__()
+        self.ip = ip
+        self.svc = svc
+
+    def exit_gracefully(self, signum, frame):
+        # [*]Process killed by command or Keyboard Interrupt.
+        if signum in [2, 15]:
+            os.remove(file_path.run_dir() + "{}_{}.run".format(self.ip, self.svc))
+            self.kill_now = True
 
 
 def data_loader(queue, input_dir):
@@ -86,6 +99,8 @@ def main(ip, svc, t, l, seq, q):
     LOG_DIR = file_path.svc_log_dir(ip, svc)
     INPUT_DIR = file_path.input_dir(ip, svc)
     OUTPUT_DIR = file_path.output_dir(ip, svc)
+    FINAL_OUTPUT_DIR = file_path.final_output_path()
+    RUN_DIR = file_path.run_dir()
 
     '''
         - slogger: Stream logger.
@@ -104,6 +119,14 @@ def main(ip, svc, t, l, seq, q):
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
         slogger.debug("OUTPUT directory doesn't exist. Create one; ({})".format(OUTPUT_DIR))
+
+    if not os.path.exists(FINAL_OUTPUT_DIR):
+        os.makedirs(FINAL_OUTPUT_DIR)
+        slogger.debug("FINAL_OUTPUT directory doesn't exist. Create one; ({})".format(FINAL_OUTPUT_DIR))
+
+    if not os.path.exists(RUN_DIR):
+        os.makedirs(RUN_DIR)
+        slogger.debug("RUNNING directory doesn't exist. Create one; ({})".format(RUN_DIR))
 
     # [*]Every day logging in different fie.
     today = datetime.now().date()
@@ -127,6 +150,11 @@ def main(ip, svc, t, l, seq, q):
                   "\t\t\t+Sequences: {}\n"
                   "\t\t\t+Quantile: {}".format(ip, svc, t, l, seq, q))
 
+    '''
+        Initialize Graceful Killer
+    '''
+    killer = Clean(ip, svc)
+
     try:
         anomaly_detector = AnomalyDetector(t, l, sequences=seq, quantile=q, ip=ip, svc_type=svc)
         slogger.debug("Anomaly Detector successfully created.")
@@ -137,7 +165,10 @@ def main(ip, svc, t, l, seq, q):
 
     dstore = Queue(seq)
 
-    while True:
+    with open(RUN_DIR + '{}_{}.run'.format(ip, svc), "w") as out:
+        out.write(str(os.getpid()))
+
+    while not killer.kill_now:
         # [*]If Day pass by create a new log file.
         today = datetime.now().date()
         if today >= tomorrow:
@@ -157,13 +188,10 @@ def main(ip, svc, t, l, seq, q):
             if rstaus is True:
                 slogger.debug("Data loader worked successfully.")
                 logger.info("Data loader worked successfully.")
-        except KeyboardInterrupt:
-            slogger.debug("Program exit..")
-            logger.info("Program exit with keyboard interrupt.")
-            raise SystemExit
         except Exception:
             elogger.error(traceback.format_exc())
             slogger.error("Data loader can't work properly. Check your error log: {}".format(elog_path))
+            os.remove(file_path.run_dir() + "{}_{}.run".format(ip, svc))
             raise SystemExit
 
         try:
@@ -173,13 +201,10 @@ def main(ip, svc, t, l, seq, q):
                 slogger.debug("Detection is normally worked.")
                 logger.info("Detection is worked.")
             time.sleep(1)
-        except KeyboardInterrupt:
-            slogger.debug("Program exit..")
-            logger.info("Program exit with keyboard interrupt.")
-            raise SystemExit
         except Exception:
             elogger.error(traceback.format_exc())
             slogger.error("Detection method didn't work properly. Check your error log: {}".format(elog_path))
+            os.remove(file_path.run_dir() + "{}_{}.run".format(ip, svc))
             raise SystemExit
 
 
