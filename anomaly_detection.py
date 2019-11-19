@@ -33,7 +33,7 @@ class Clean(GracefulKiller):
     def exit_gracefully(self, signum, frame):
         # [*]Process killed by command or Keyboard Interrupt.
         if signum in [2, 15]:
-            os.remove(file_path.run_dir() + "{}_{}.run".format(self.ip, self.svc))
+            os.remove(file_path.run_dir() + "{}_{}.detector.run".format(self.ip, self.svc))
             self.kill_now = True
 
 
@@ -165,7 +165,7 @@ def main(ip, svc, t, l, seq, q):
 
     dstore = Queue(seq)
 
-    with open(RUN_DIR + '{}_{}.run'.format(ip, svc), "w") as out:
+    with open(RUN_DIR + '{}_{}.detector.run'.format(ip, svc), "w") as out:
         out.write(str(os.getpid()))
 
     while not killer.kill_now:

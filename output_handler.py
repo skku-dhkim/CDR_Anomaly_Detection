@@ -41,7 +41,7 @@ def get_running_process():
     :return:
         - A dictionary. Dictionary of p-gateway ip and its service ids.
     """
-    running_file = glob.glob(fp.run_dir() + "*.run")
+    running_file = glob.glob(fp.run_dir() + "*.detector.run")
     running_process = {}
     for rf in running_file:
         temp = rf.split("/")[-1].split("_")
@@ -217,6 +217,8 @@ if __name__ == "__main__":
             slogger.debug("Multiprocessing starts.")
             stime = timeit.default_timer()
 
+            # if not process_list:
+
             # [*]Multi-process by ip address.
             for p in process_list.keys():
                 process = Process(target=multi_process_by_ip, args=(p, process_list[p]), name=p)
@@ -237,8 +239,6 @@ if __name__ == "__main__":
                 for p in multi_process:
                     # [*] Process end, if work is finished.
                     p.terminate()
-                    if p.is_alive():
-                        logger.info("Process is Alive!!")
             # --------------------------------------
 
         except KeyboardInterrupt:
