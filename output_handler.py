@@ -20,11 +20,19 @@ from utils.logger import StreamLogger, FileLogger
 from datetime import datetime, timedelta
 from queue import Queue
 from threading import Thread
-
+from utils.graceful_killer import GracefulKiller
 
 num_of_thread = 10
 STREAM_LOG_LEVEL = "WARNING"
 LOG_LEVEL = "INFO"
+
+
+class Clean(GracefulKiller):
+    def exit_gracefully(self, signum, frame):
+        # [*]Process killed by command or Keyboard Interrupt.
+        if signum in [2, 15]:
+            os.remove(fp.run_dir() + "output_handler.run")
+            self.kill_now = True
 
 
 def get_running_process():
@@ -151,6 +159,12 @@ if __name__ == "__main__":
     if not os.path.exists(fp.final_output_path()):
         os.makedirs(fp.final_output_path())
 
+    if not os.path.exists(fp.run_dir()):
+        os.makedirs(fp.run_dir())
+
+    with open(fp.run_dir() + "output_handler.run", "w") as file:
+        file.write(str(os.getpid()))
+
     # [*]Every day logging in different fie.
     today = datetime.now().date()
     tomorrow = today + timedelta(days=1)
@@ -162,7 +176,12 @@ if __name__ == "__main__":
     slogger = StreamLogger("stream_output_handler", level=STREAM_LOG_LEVEL).get_instance()
     logger = FileLogger("output_handler", log_path, level=LOG_LEVEL).get_instance()
 
-    while True:
+    '''
+        Graceful killer
+    '''
+    killer = Clean()
+
+    while not killer.kill_now:
         today = datetime.now().date()
         # [*]If Day pass by create a new log file.
         if today >= tomorrow:

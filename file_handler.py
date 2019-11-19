@@ -16,6 +16,15 @@ import traceback
 
 from datetime import datetime, timedelta
 from utils.logger import FileLogger
+from utils.graceful_killer import GracefulKiller
+
+
+class Clean(GracefulKiller):
+    def exit_gracefully(self, signum, frame):
+        # [*]Process killed by command or Keyboard Interrupt.
+        if signum in [2, 15]:
+            os.remove(fp.run_dir() + "file_handler.run")
+            self.kill_now = True
 
 
 def file_handler(in_file, loggers):
@@ -70,6 +79,12 @@ if __name__ == '__main__':
     if not os.path.exists(fp.log_dir()):
         os.makedirs(fp.log_dir())
 
+    if not os.path.exists(fp.run_dir()):
+        os.makedirs(fp.run_dir())
+
+    with open(fp.run_dir() + "file_handler.run", "w") as file:
+        file.write(str(os.getpid()))
+
     # [*]Every day logging in different fie.
     today = datetime.now().date()
     tomorrow = today + timedelta(days=1)
@@ -84,8 +99,13 @@ if __name__ == '__main__':
     logger = FileLogger('file_handler_info', log_path=log_path, level='INFO').get_instance()
     elogger = FileLogger('file_handler_error', log_path=elog_path, level='WARNING').get_instance()
 
+    '''
+        Graceful killer
+    '''
+    killer = Clean()
+
     try:
-        while True:
+        while not killer.kill_now:
             # [*]If Day pass by create a new log file.
             if today >= tomorrow:
                 today = tomorrow
