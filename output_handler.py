@@ -1,7 +1,7 @@
 """
 @ File name: output_handler.py
-@ Version: 1.0.0
-@ Last update: 2019.Nov.19
+@ Version: 1.0.1
+@ Last update: 2019.Nov.20
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -23,6 +23,7 @@ from threading import Thread
 from utils.graceful_killer import GracefulKiller
 
 num_of_thread = 10
+sleep_time = 30
 STREAM_LOG_LEVEL = "WARNING"
 LOG_LEVEL = "INFO"
 
@@ -150,10 +151,8 @@ if __name__ == "__main__":
         1) Log directory create, if doesn't exist.
         2) Logger define.
         3) While roof
-            3-1) Walk all files in management directory
-            3-2) Integrate all output data from it's ip and service type.
-            3-3) Filtering the data by ip address.
-            3-4) Write the final output file filter by date time.
+            3-1) Get running process of anomaly detection module.
+            3-2) Each IP address got it's process to integrate all output data from it's service type.
     """
     # [*]Make Final output directory, if doesn't exist.
     if not os.path.exists(fp.final_output_path()):
@@ -205,6 +204,11 @@ if __name__ == "__main__":
 
             # [*]Get all files from management path.
             process_list = get_running_process()
+
+            if not process_list:
+                time.sleep(sleep_time)
+                continue
+
             logger.info("Got running process: {}".format(process_list))
 
             slogger.debug("Running process ends.")
@@ -216,8 +220,6 @@ if __name__ == "__main__":
             # --------------------------------------
             slogger.debug("Multiprocessing starts.")
             stime = timeit.default_timer()
-
-            # if not process_list:
 
             # [*]Multi-process by ip address.
             for p in process_list.keys():
@@ -240,12 +242,8 @@ if __name__ == "__main__":
                     # [*] Process end, if work is finished.
                     p.terminate()
             # --------------------------------------
-
-        except KeyboardInterrupt:
-            slogger.info("Output handler finished by Keyboard Interrupt.")
-            raise SystemExit
         except Exception:
             elogger.error(traceback.format_exc())
             slogger.error("Output handler didn't work properly. Check your error log: {}".format(log_path))
 
-        time.sleep(1)
+        time.sleep(sleep_time)
