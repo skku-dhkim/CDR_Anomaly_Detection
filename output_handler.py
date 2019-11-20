@@ -193,7 +193,7 @@ if __name__ == "__main__":
             log_path = fp.log_dir() + 'output_handler_{}.log'.format(today)
 
             elogger = FileLogger("output_handler_error", elog_path, level="WARNING").get_instance()
-            logger = FileLogger("output_handler", elog_path, level=LOG_LEVEL).get_instance()
+            logger = FileLogger("output_handler", log_path, level=LOG_LEVEL).get_instance()
 
         # [*]Multi-process init.
         multi_process = []

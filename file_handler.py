@@ -107,8 +107,8 @@ if __name__ == '__main__':
     try:
         while not killer.kill_now:
             # [*]If Day pass by create a new log file.
+            today = datetime.now().date()
             if today >= tomorrow:
-                today = tomorrow
                 tomorrow = today + timedelta(days=1)
 
                 # [*]Log handler updates
@@ -127,9 +127,6 @@ if __name__ == '__main__':
                 for f in file:
                     file_handler(f, (logger, elogger))
             time.sleep(1)
-    except KeyboardInterrupt:
-        logger.info("Program exit with Keyboard interruption.")
-        raise SystemExit
     except Exception:
         # [*]Log the errors.
         elogger.error(traceback.format_exc())
