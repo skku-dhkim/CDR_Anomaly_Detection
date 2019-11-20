@@ -1,7 +1,7 @@
 """
 @ File name: file_handler.py
-@ Version: 1.1.3
-@ Last update: 2019.Nov.15
+@ Version: 1.1.4
+@ Last update: 2019.Nov.20
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -81,6 +81,9 @@ if __name__ == '__main__':
 
     if not os.path.exists(fp.run_dir()):
         os.makedirs(fp.run_dir())
+
+    if not os.path.exists(fp.original_input_path()):
+        os.makedirs(fp.original_input_path())
 
     with open(fp.run_dir() + "file_handler.run", "w") as file:
         file.write(str(os.getpid()))
