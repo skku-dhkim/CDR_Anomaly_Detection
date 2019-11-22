@@ -1,7 +1,7 @@
 """
 @ File name: anomaly_detection.py
-@ Version: 1.1.0
-@ Last update: 2019.Nov.19
+@ Version: 1.2.0
+@ Last update: 2019.Nov.22
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -14,6 +14,8 @@ import time
 import glob
 import numpy as np
 import traceback
+import timeit
+import utils.marker as mk
 
 from models.anomaly_detector import AnomalyDetector
 from datetime import datetime, timedelta
@@ -21,7 +23,7 @@ from utils.queue import Queue
 from utils.logger import FileLogger, StreamLogger
 from utils.graceful_killer import GracefulKiller
 
-SLOG_LEVEL = "WARNING"
+SLOG_LEVEL = "INFO"
 
 
 class Clean(GracefulKiller):
@@ -32,9 +34,10 @@ class Clean(GracefulKiller):
 
     def exit_gracefully(self, signum, frame):
         # [*]Process killed by command or Keyboard Interrupt.
-        if signum in [2, 15]:
-            os.remove(file_path.run_dir() + "{}_{}.detector.run".format(self.ip, self.svc))
-            self.kill_now = True
+        os.remove(file_path.run_dir() + "{}_{}.detector.run".format(self.ip, self.svc))
+        slogger.info("anomaly detector - {}:{} is end.".format(self.ip, self.svc))
+        self.kill_now = True
+        raise SystemExit
 
 
 def data_loader(queue, input_dir):
@@ -46,17 +49,31 @@ def data_loader(queue, input_dir):
         - queue: A Queue object.
         - boolean: if file exist returns True, else returns False.
     """
-    input_file = input_dir + "*.DAT"
-    file_list = glob.glob(input_file)
-    file_list = sorted(file_list)
+    stime = timeit.default_timer()
 
-    if file_list:
+    info_file_list = glob.glob(input_dir + "*.DAT.INFO")
+    if info_file_list:
+        info_file_list = sorted(info_file_list)
+
         # [*] Work with first file
-        df = pd.read_csv(file_list[0], delimiter='|', names=['PGW_IP', 'DTmm', 'SVC_TYPE', 'UP', 'DN']).to_numpy()
+        file = info_file_list[0]
+        logger.info(".INFO file is detected: {}".format(file))
+
+        # [*]Remove .INFO extension.
+        file = file[:-5]
+        df = pd.read_csv(file, delimiter='|', names=['PGW_IP', 'DTmm', 'SVC_TYPE', 'UP', 'DN']).to_numpy()
+
         if queue.full():
             queue.get()
         queue.put([df[0][1], df[0][3], df[0][4]])
-        os.remove(file_list[0])
+        logger.info("Dataframe: {}".format(df))
+
+        # [*]Remove loaded file list.
+        os.remove(info_file_list[0])
+        os.remove(file)
+
+        etime = timeit.default_timer()
+        logger.info("Data loader required time: {}".format(etime-stime))
 
         return queue, True
     return queue, False
@@ -71,42 +88,15 @@ def detection(detector, data, output_dir):
     :return: None
     """
     td = np.array(data.indexList)
+    # [*]Date, Data separation
     td_date = td[:, 0]
     td_data = td[:, 1:]
     output_path = output_dir + '{}_{}_{}.DAT'.format(detector.ip, detector.svc_type, td_date[-1])
     detector.compute_anomaly_score(td_date, td_data, output_path)
+    logger.info("Detection is worked with data ({})".format(td_date))
 
 
-def main(ip, svc, t, l, seq, q):
-    """
-    Work flow:
-        1) Directory creation, if doesn't exist.
-        2) Logger define.
-        3) Anomaly Detector define.
-        4) While roof
-            4-1) Check logger's date.
-            4-2) Loading the data, if input file exists.
-            4-3) Anomaly detection, if data queue is full and file is read.
-
-    :param ip: A String. P-gateway address.
-    :param svc: A String. Service Type.
-    :param t: An Integer. Number of trees.
-    :param l: An Integer. Leaf size.
-    :param seq: An Integer. Sequences.
-    :param q: A Float. Quantile.
-    :return: None.
-    """
-    LOG_DIR = file_path.svc_log_dir(ip, svc)
-    INPUT_DIR = file_path.input_dir(ip, svc)
-    OUTPUT_DIR = file_path.output_dir(ip, svc)
-    FINAL_OUTPUT_DIR = file_path.final_output_path()
-    RUN_DIR = file_path.run_dir()
-
-    '''
-        - slogger: Stream logger.
-    '''
-    slogger = StreamLogger('anomaly_detection_stream_logger', level=SLOG_LEVEL).get_instance()
-
+def directory_check():
     # [*]Create directory if doesn't exist.
     if not os.path.exists(LOG_DIR):
         os.makedirs(LOG_DIR)
@@ -128,19 +118,28 @@ def main(ip, svc, t, l, seq, q):
         os.makedirs(RUN_DIR)
         slogger.debug("RUNNING directory doesn't exist. Create one; ({})".format(RUN_DIR))
 
-    # [*]Every day logging in different fie.
-    today = datetime.now().date()
-    tomorrow = today + timedelta(days=1)
 
-    log_path = file_path.svc_log_dir(ip, svc) + 'anomaly_detection_{}.log'.format(today)
-    elog_path = file_path.svc_log_dir(ip, svc) + 'anomaly_detection_error_{}.log'.format(today)
+def main(ip, svc, t, l, seq, q):
+    """
+    Work flow:
+        1) Directory creation, if doesn't exist.
+        2) Logger define.
+        3) Anomaly Detector define.
+        4) While roof
+            4-1) Check logger's date.
+            4-2) Loading the data, if input file exists.
+            4-3) Anomaly detection, if data queue is full and file is read.
 
-    '''
-        - logger; Informative logger.
-        - elogger; error logger.
-    '''
-    logger = FileLogger('anomaly_detection_info', log_path=log_path, level='INFO').get_instance()
-    elogger = FileLogger('anomaly_detection_error', log_path=elog_path, level='WARNING').get_instance()
+    :param ip: A String. P-gateway address.
+    :param svc: A String. Service Type.
+    :param t: An Integer. Number of trees.
+    :param l: An Integer. Leaf size.
+    :param seq: An Integer. Sequences.
+    :param q: A Float. Quantile.
+    :return: None.
+    """
+    global slogger, logger, elogger, elog_path
+    global today, tomorrow
 
     slogger.debug("\n\t\t@Hyper parameters: \n"
                   "\t\t\t+IP addr: {}\n"
@@ -161,45 +160,46 @@ def main(ip, svc, t, l, seq, q):
     except Exception:
         elogger.error(traceback.format_exc())
         slogger.error("Anomaly Detector couldn't be created. Check your error log: {}".format(elog_path))
+        os.remove(file_path.run_dir() + "{}_{}.detector.run".format(ip, svc))
         raise SystemExit
 
     dstore = Queue(seq)
 
-    with open(RUN_DIR + '{}_{}.detector.run'.format(ip, svc), "w") as out:
-        out.write(str(os.getpid()))
-
     while not killer.kill_now:
+        # [*] Check directory existence.
+        directory_check()
+
         # [*]If Day pass by create a new log file.
         today = datetime.now().date()
         if today >= tomorrow:
             tomorrow = today + timedelta(days=1)
 
             # [*]Log handler updates
-            log_path = file_path.svc_log_dir(ip, svc) + 'anomaly_detection_{}.log'.format(today)
-            elog_path = file_path.svc_log_dir(ip, svc) + 'anomaly_detection_error_{}.log'.format(today)
+            update_log_path = file_path.svc_log_dir(ip, svc) + 'anomaly_detection_{}.log'.format(today)
+            update_elog_path = file_path.svc_log_dir(ip, svc) + 'anomaly_detection_error_{}.log'.format(today)
 
             slogger = StreamLogger('anomaly_detection_stream_logger', level=SLOG_LEVEL).get_instance()
-            logger = FileLogger('anomaly_detection_info', log_path=log_path, level='INFO').get_instance()
-            elogger = FileLogger('anomaly_detection_error', log_path=elog_path, level='WARNING').get_instance()
+            logger = FileLogger('anomaly_detection_info', log_path=update_log_path, level='INFO').get_instance()
+            elogger = FileLogger('anomaly_detection_error', log_path=update_elog_path, level='WARNING').get_instance()
 
         try:
             # [*]Loading the data and save it into queue.
-            dstore, rstaus = data_loader(dstore, INPUT_DIR)
-            if rstaus is True:
-                slogger.debug("Data loader worked successfully.")
-                logger.info("Data loader worked successfully.")
+            dstore, read_status = data_loader(dstore, INPUT_DIR)
+            slogger.debug("Read status: {}".format(read_status))
         except Exception:
             elogger.error(traceback.format_exc())
             slogger.error("Data loader can't work properly. Check your error log: {}".format(elog_path))
-            os.remove(file_path.run_dir() + "{}_{}.run".format(ip, svc))
+            os.remove(file_path.run_dir() + "{}_{}.detector.run".format(ip, svc))
             raise SystemExit
 
         try:
-            if rstaus is True and dstore.full() is True:
+            if read_status is True and dstore.full() is True:
+                stime = timeit.default_timer()
                 # [*]Anomaly Detection.
                 detection(anomaly_detector, dstore, OUTPUT_DIR)
+                etime = timeit.default_timer()
+                logger.info("Detection required time: {}".format(etime-stime))
                 slogger.debug("Detection is normally worked.")
-                logger.info("Detection is worked.")
             time.sleep(1)
         except Exception:
             elogger.error(traceback.format_exc())
@@ -222,4 +222,41 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    LOG_DIR = file_path.svc_log_dir(args.ip, args.svc)
+    INPUT_DIR = file_path.input_dir(args.ip, args.svc)
+    OUTPUT_DIR = file_path.output_dir(args.ip, args.svc)
+    FINAL_OUTPUT_DIR = file_path.final_output_path()
+    RUN_DIR = file_path.run_dir()
+
+    '''
+        - slogger: Stream logger.
+    '''
+    slogger = StreamLogger('anomaly_detection_stream_logger', level=SLOG_LEVEL).get_instance()
+
+    # [*] Check directory existence.
+    directory_check()
+
+    # [*]Every day logging in different fie.
+    today = datetime.now().date()
+    tomorrow = today + timedelta(days=1)
+
+    log_path = file_path.svc_log_dir(args.ip, args.svc) + 'anomaly_detection_{}.log'.format(today)
+    elog_path = file_path.svc_log_dir(args.ip, args.svc) + 'anomaly_detection_error_{}.log'.format(today)
+
+    '''
+        - logger; Informative logger.
+        - elogger; error logger.
+    '''
+    logger = FileLogger('anomaly_detection_info', log_path=log_path, level='INFO').get_instance()
+    elogger = FileLogger('anomaly_detection_error', log_path=elog_path, level='WARNING').get_instance()
+
+    if os.path.exists(RUN_DIR + '{}_{}.detector.run'.format(args.ip, args.svc)):
+        elogger.error("Anomaly detector of {}:{} is already running. Program exit.".format(args.ip, args.svc))
+        slogger.error("Anomaly detector of {}:{} is already running. Program exit.".format(args.ip, args.svc))
+        raise SystemExit
+    else:
+        with open(RUN_DIR + '{}_{}.detector.run'.format(args.ip, args.svc), "w") as out:
+            out.write(str(os.getpid()))
+
+    mk.debug_info("Anomaly detector({}, {}) start running.".format(args.ip, args.svc))
     main(args.ip, args.svc, args.trees, args.leaves, args.seq, args.q)

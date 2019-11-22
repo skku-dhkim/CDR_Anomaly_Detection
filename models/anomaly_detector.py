@@ -1,7 +1,7 @@
 """
 @ File name: anomaly_detector.py
-@ Version: 1.0.1
-@ Last update: 2019.Nov.16
+@ Version: 1.1.0
+@ Last update: 2019.Nov.22
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -99,6 +99,9 @@ class AnomalyDetector(object):
         with open(output_path, 'w') as file:
             csv_writer = csv.writer(file, delimiter='|')
             csv_writer.writerow(final_result)
+
+        with open(output_path + ".INFO", 'w') as file:
+            file.write("")
 
     def _calculate_threshold(self):
         """
