@@ -1,7 +1,7 @@
 """
 @ File name: anomaly_detector.py
-@ Version: 1.1.0
-@ Last update: 2019.Nov.22
+@ Version: 1.1.1
+@ Last update: 2019.DEC.5
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -231,6 +231,6 @@ class AnomayQueue(Queue):
         for item in self.indexList:
             if item[1] == 'anomaly':
                 anomaly_counter += 1
-        p = anomaly_counter / base
+        p = round(anomaly_counter / base, 3)
         percentage = [self.indexList[0][0], self.indexList[-1][0], p]
         return percentage

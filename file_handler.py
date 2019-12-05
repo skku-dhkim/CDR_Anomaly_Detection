@@ -1,7 +1,7 @@
 """
 @ File name: file_handler.py
-@ Version: 1.2.0
-@ Last update: 2019.Nov.22
+@ Version: 1.2.1
+@ Last update: 2019.DEC.05
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -36,6 +36,11 @@ def file_handler(in_file):
     :return: None
     """
     df = pd.read_csv(in_file, delimiter='|', header=None, names=['PGW_IP', 'DTmm', 'SVC_TYPE', 'UP', 'DN'])
+
+    # Drop Empty Rows
+    elogger.warning("Empty filed data is occurred: \n{}".format(df[df.isnull().any(axis=1)]))
+    df = df.dropna()
+
     ip_addr = df['PGW_IP'].unique().tolist()
     svc_type = df['SVC_TYPE'].unique().tolist()
 
