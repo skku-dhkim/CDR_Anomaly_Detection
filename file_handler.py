@@ -1,7 +1,7 @@
 """
 @ File name: file_handler.py
-@ Version: 1.2.1
-@ Last update: 2019.DEC.05
+@ Version: 1.2.2
+@ Last update: 2019.DEC.06
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -15,6 +15,7 @@ import os
 import traceback
 import timeit
 import utils.marker as mk
+import shutil
 
 from datetime import datetime, timedelta
 from utils.logger import FileLogger
@@ -76,6 +77,10 @@ def file_handler(in_file):
     # [*]Log
     logger.info("Job is finished: {}".format(in_file))
 
+    # [*]copy the file into backup directory.
+    file_name = in_file.split("/")[-1]
+    shutil.copyfile(in_file, fp.backup_dir()+file_name)
+
     # [*]If clearly finished, remove original file.
     os.remove(in_file)
 
@@ -124,6 +129,7 @@ def main():
             # [*]Log the errors.
             elogger.error(traceback.format_exc())
             os.remove(fp.run_dir() + "file_handler.run")
+            mk.debug_info("file_handler didn't work properly. Check your error log: {}".format(elog_path))
             raise SystemExit
 
 

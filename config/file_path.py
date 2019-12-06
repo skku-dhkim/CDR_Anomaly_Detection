@@ -36,3 +36,8 @@ def anomaly_score_dir(PGW_IP, SVC_TYPE):
 
 def run_dir():
     return '{}/running/'.format(management_dir())
+
+
+def backup_dir():
+    # return '/OPER/ML/SVCTYPE/BACKUP/'
+    return './BACKUP/'
