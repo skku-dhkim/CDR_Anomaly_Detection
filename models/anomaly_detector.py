@@ -1,7 +1,7 @@
 """
 @ File name: anomaly_detector.py
-@ Version: 1.1.1
-@ Last update: 2019.DEC.5
+@ Version: 1.2.0
+@ Last update: 2019.DEC.09
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -9,7 +9,6 @@
 import json
 import csv
 import os
-import numpy as np
 import config.file_path as fp
 
 from models.rrcf_cls import RRCF
@@ -69,11 +68,9 @@ class AnomalyDetector(object):
         :param output_path: A String. The path of output result.
         :return: None.
         """
-        # [*]Convert to numpy type.
-        np_data = np.array(data, dtype=np.float)
 
         # [*]Calculate the anomaly score.
-        r = self.rrcf.anomaly_score(date, np_data, with_date=True)
+        r = self.rrcf.anomaly_score(date, data, with_date=True)
         self.anomaly_score.append(r)
 
         # [*]Calculate threshold.

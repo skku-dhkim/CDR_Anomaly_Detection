@@ -1,7 +1,7 @@
 """
 @ File name: anomaly_detection.py
-@ Version: 1.2.0
-@ Last update: 2019.Nov.22
+@ Version: 1.3.0
+@ Last update: 2019.DEC.09
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -37,13 +37,12 @@ class Clean(GracefulKiller):
         os.remove(file_path.run_dir() + "{}_{}.detector.run".format(self.ip, self.svc))
         slogger.info("anomaly detector - {}:{} is end.".format(self.ip, self.svc))
         self.kill_now = True
-        raise SystemExit
+        # raise SystemExit
 
 
-def data_loader(queue, input_dir):
+def data_loader(input_dir):
     """
     Load the train data from input directory.
-    :param queue: A Queue object. Represent Anomaly Queue.
     :param input_dir: A String. Train data path.
     :return:
         - queue: A Queue object.
@@ -61,11 +60,14 @@ def data_loader(queue, input_dir):
 
         # [*]Remove .INFO extension.
         file = file[:-5]
-        df = pd.read_csv(file, delimiter='|', names=['PGW_IP', 'DTmm', 'SVC_TYPE', 'UP', 'DN']).to_numpy()
+        df = pd.read_csv(file, delimiter='|', names=['PGW_IP', 'DTmm', 'SVC_TYPE', 'UP', 'DN'], dtype={
+                         "PGW_IP": str,
+                         "DTmm": str,
+                         "SVC_TYPE": str,
+                         "UP": float,
+                         "DN": float
+                     }).to_numpy()
 
-        if queue.full():
-            queue.get()
-        queue.put([df[0][1], df[0][3], df[0][4]])
         logger.info("Dataframe: {}".format(df))
 
         # [*]Remove loaded file list.
@@ -75,8 +77,8 @@ def data_loader(queue, input_dir):
         etime = timeit.default_timer()
         logger.info("Data loader required time: {}".format(etime-stime))
 
-        return queue, True
-    return queue, False
+        return df
+    return None
 
 
 def detection(detector, data, output_dir):
@@ -87,13 +89,24 @@ def detection(detector, data, output_dir):
     :param output_dir: A String. Output directory path.
     :return: None
     """
-    td = np.array(data.indexList)
-    # [*]Date, Data separation
-    td_date = td[:, 0]
-    td_data = td[:, 1:]
-    output_path = output_dir + '{}_{}_{}.DAT'.format(detector.ip, detector.svc_type, td_date[-1])
-    detector.compute_anomaly_score(td_date, td_data, output_path)
-    logger.info("Detection is worked with data ({})".format(td_date))
+
+    for d in data:
+        if dstore.full():
+            dstore.get()
+            dstore.put([d[1], d[3:]])
+            training_data = np.array(dstore.indexList)
+            t_date = training_data[:, 0]
+            t_data = training_data[:, 1]
+
+            np_data = []
+            for t in t_data:
+                np_data.append(np.array(t, dtype=np.float))
+            np_data = np.array(np_data)
+            logger.info("Detection input data ({})".format(np_data))
+            output_path = output_dir + '{}_{}_{}.DAT'.format(detector.ip, detector.svc_type, t_date[-1])
+            detector.compute_anomaly_score(t_date, np_data, output_path)
+        else:
+            dstore.put([d[1], d[3:]])
 
 
 def directory_check():
@@ -140,6 +153,7 @@ def main(ip, svc, t, l, seq, q):
     """
     global slogger, logger, elogger, elog_path
     global today, tomorrow
+    global dstore
 
     slogger.debug("\n\t\t@Hyper parameters: \n"
                   "\t\t\t+IP addr: {}\n"
@@ -163,8 +177,6 @@ def main(ip, svc, t, l, seq, q):
         os.remove(file_path.run_dir() + "{}_{}.detector.run".format(ip, svc))
         raise SystemExit
 
-    dstore = Queue(seq)
-
     while not killer.kill_now:
         # [*] Check directory existence.
         directory_check()
@@ -184,8 +196,8 @@ def main(ip, svc, t, l, seq, q):
 
         try:
             # [*]Loading the data and save it into queue.
-            dstore, read_status = data_loader(dstore, INPUT_DIR)
-            slogger.debug("Read status: {}".format(read_status))
+            data = data_loader(INPUT_DIR)
+            slogger.debug("Read status: {}".format(data))
         except Exception:
             elogger.error(traceback.format_exc())
             slogger.error("Data loader can't work properly. Check your error log: {}".format(elog_path))
@@ -193,10 +205,10 @@ def main(ip, svc, t, l, seq, q):
             raise SystemExit
 
         try:
-            if read_status is True and dstore.full() is True:
+            if data is not None:
                 stime = timeit.default_timer()
                 # [*]Anomaly Detection.
-                detection(anomaly_detector, dstore, OUTPUT_DIR)
+                detection(anomaly_detector, data, OUTPUT_DIR)
                 etime = timeit.default_timer()
                 logger.info("Detection required time: {}".format(etime-stime))
                 slogger.debug("Detection is normally worked.")
@@ -204,7 +216,7 @@ def main(ip, svc, t, l, seq, q):
         except Exception:
             elogger.error(traceback.format_exc())
             slogger.error("Detection method didn't work properly. Check your error log: {}".format(elog_path))
-            os.remove(file_path.run_dir() + "{}_{}.run".format(ip, svc))
+            os.remove(file_path.run_dir() + "{}_{}.detector.run".format(ip, svc))
             raise SystemExit
 
 
@@ -216,8 +228,8 @@ if __name__ == '__main__':
 
     # [*]Hyper parameters.
     parser.add_argument('--trees', type=int, help='Number of trees.(Default:80)', default=80)
-    parser.add_argument('--seq', type=int, help='Sequences to observe.(Default: 10)', default=10)
-    parser.add_argument('--leaves', type=int, help='Leaf size to memorize.(Default: 4320)', default=4320)
+    parser.add_argument('--seq', type=int, help='Sequences to observe.(Default: 6)', default=6)
+    parser.add_argument('--leaves', type=int, help='Leaf size to memorize.(Default: 864)', default=864)
     parser.add_argument('--q', type=float, help='Quantile value.(Default: 0.99)', default=0.99)
 
     args = parser.parse_args()
@@ -259,4 +271,8 @@ if __name__ == '__main__':
             out.write(str(os.getpid()))
 
     mk.debug_info("Anomaly detector({}, {}) start running.".format(args.ip, args.svc))
+
+    # [*] NOTE: Global Queue
+    dstore = Queue(args.seq)
+
     main(args.ip, args.svc, args.trees, args.leaves, args.seq, args.q)

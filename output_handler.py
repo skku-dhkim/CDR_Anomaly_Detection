@@ -1,7 +1,7 @@
 """
 @ File name: output_handler.py
-@ Version: 1.2.0
-@ Last update: 2019.Nov.22
+@ Version: 1.3.0
+@ Last update: 2019.DEC.09
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -16,16 +16,13 @@ import glob
 import timeit
 import utils.marker as mk
 import numpy as np
+import argparse
 
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 from utils.logger import StreamLogger, FileLogger
 from datetime import datetime, timedelta
-from queue import Queue
-from threading import Thread
 from utils.graceful_killer import GracefulKiller
 
-num_of_thread = 10
-sleep_time = 1
 STREAM_LOG_LEVEL = "WARNING"
 LOG_LEVEL = "INFO"
 
@@ -57,7 +54,7 @@ def get_running_process():
     return running_process
 
 
-def multi_process_by_ip(pid, svc_list):
+def multi_process_by_ip(pid, svc_list, mq):
     """
     This method is worked by multi-processing. It gather the output data from each service directory using thread.
     And then write a file.
@@ -68,8 +65,6 @@ def multi_process_by_ip(pid, svc_list):
     """
     # [*] Initializing variables.
     files = []
-    queue = Queue()
-
     for svc in svc_list:
         stime = timeit.default_timer()
         info_file = glob.glob(fp.management_dir() + "/{}/{}/output/*.DAT.INFO".format(pid, svc))
@@ -77,90 +72,21 @@ def multi_process_by_ip(pid, svc_list):
         etime = timeit.default_timer()
         logger.debug(".INFO searched time: {}".format(etime-stime))
 
-        # [*] When .INFO files doesn't exist.
-        if not info_file:
-            return
-
         # [*] Remove .INFO extension.
         stime = timeit.default_timer()
         for info in info_file:
             temp = info[:-5]
             files.append(temp)
 
-            # [*] Remove finished files.
-            os.remove(info)
-            logger.info("Info file deleted: {}".format(info))
+        logger.info("Info files are deleted: {}".format(info_file))
 
         etime = timeit.default_timer()
         logger.debug("Extension removal time: {}".format(etime-stime))
 
-    # [*] Multi-tasking.
-    threads = []
-    unit = int(len(files)/num_of_thread)
-    files = sorted(files)
-    logger.info("Thread input files list: {}".format(files))
+    if not files:
+        logger.info("There is no data to process in: {}".format(pid))
+        return
 
-    stime = timeit.default_timer()
-    for i in range(num_of_thread):
-        if i+1 == num_of_thread:
-            t = Thread(target=_data_integration, args=(queue, files[i*unit:]))
-            t.start()
-            threads.append(t)
-        else:
-            t = Thread(target=_data_integration, args=(queue, files[i*unit:i*unit+unit]))
-            t.start()
-            threads.append(t)
-
-    for t in threads:
-        t.join()
-    etime = timeit.default_timer()
-    logger.info("Thread required time : {}".format(etime-stime))
-
-    all_data = []
-    while not queue.empty():
-        all_data += queue.get()
-
-    # [*] Integrate date frames from queue.
-    df_all_data = pd.DataFrame(all_data, columns=["PGW_IP", "DTmm", "SVC_TYPE", "REAL_UP", "REAL_DN",
-                                                  "ANOMALY_SCORE", "ESTIMATION", "PERCENTAGE"])
-    # [*] Sort by time and re-indexing.
-    if not df_all_data.empty:
-        df_all_data.sort_values(by=["DTmm"], inplace=True)
-        df_all_data = df_all_data.reset_index(drop=True)
-
-    logger.debug(df_all_data)
-
-    # [*] Extract date and time.
-    date_time = sorted(df_all_data['DTmm'].unique())
-    logger.info("Extracted date and time: {}".format(date_time))
-
-    # [*] Write into OUTPUT file.
-    for dt in date_time:
-        output_path = fp.final_output_path() + "{}.{}.DAT.RESULT".format(pid, dt)
-        data = df_all_data.loc[df_all_data['DTmm'] == dt]
-
-        with open(output_path, "w") as file:
-            csv_writer = csv.writer(file, delimiter='|')
-            np_data = data.to_numpy()
-            for d in np_data:
-                csv_writer.writerow(d)
-
-        with open(output_path + ".INFO", "w") as file_pointer:
-            file_pointer.write("")
-
-    # [*] Remove finished files.
-    for f in files:
-        os.remove(f)
-
-
-def _data_integration(q, files):
-    """
-    The thread of 'multi_process_by_ip' function. It gathers all the data from each service output.
-    All the result will write in shared queue.
-    :param q: A Queue object. Shared Queue of thread.
-    :param files: A List object. List of file path for read.
-    :return: None.
-    """
     all_data = []
     # [*] Integrate all data in files.
     for f in files:
@@ -171,8 +97,13 @@ def _data_integration(q, files):
                     line.append(np.nan)
                 all_data.append(line)
 
-    # [*] Shared Queue.
-    q.put(all_data)
+    mq.put(all_data)
+
+    # [*] Remove finished files.
+    for f in files:
+        alpha = f + ".INFO"
+        os.remove(f)
+        os.remove(alpha)
 
 
 def directory_check():
@@ -190,6 +121,8 @@ def directory_check():
 def main():
     global today, tomorrow
     global elogger, logger, slogger
+    global killer
+    global sleep_time
 
     while not killer.kill_now:
         directory_check()
@@ -228,13 +161,15 @@ def main():
             logger.info("'get_running_process' function required time: {}".format(etime-stime))
             # --------------------------------------
 
-            # --------------------------------------
             slogger.debug("Multiprocessing starts.")
             stime = timeit.default_timer()
 
-            # [*]Multi-process by ip address.
+            # [*] Multi-process Queue.
+            q = Queue()
+
+            # [*] Multi-process by ip address.
             for p in process_list.keys():
-                process = Process(target=multi_process_by_ip, args=(p, process_list[p]), name=p)
+                process = Process(target=multi_process_by_ip, args=(p, process_list[p], q,), name=p)
                 process.start()
                 multi_process.append(process)
 
@@ -243,17 +178,51 @@ def main():
             for mp in multi_process:
                 mp.join()
 
+            # [*] Sleep time to join.
+            time.sleep(sleep_time)
+
+            # [*] Collect data.
+            final_data = []
+
+            while not q.empty():
+                final_data += q.get()
+
             etime = timeit.default_timer()
+
             logger.info("Multiprocessing require time: {}".format(etime - stime))
             slogger.debug("Multiprocessing ends.")
 
-            # --------------------------------------
+            # [*] To file.
+            if final_data:
+                # [*] Integrate date frames from queue.
+                df_all_data = pd.DataFrame(final_data, columns=["PGW_IP", "DTmm", "SVC_TYPE", "REAL_UP", "REAL_DN",
+                                                                "ANOMALY_SCORE", "ESTIMATION", "PERCENTAGE"])
+                # [*] Sort by time and re-indexing.
+                if not df_all_data.empty:
+                    df_all_data.sort_values(by=["DTmm"], inplace=True)
+                    df_all_data = df_all_data.reset_index(drop=True)
+
+                logger.debug(df_all_data)
+
+                dt = datetime.now()
+                dt = dt.strftime("%Y%m%d_%H%M")
+                # [*] Write into OUTPUT file.
+                output_path = fp.final_output_path() + "POFCSSA.POLICY.{}.DAT.RESULT".format(dt)
+
+                with open(output_path, "w") as file:
+                    csv_writer = csv.writer(file, delimiter='|')
+                    np_data = df_all_data.to_numpy()
+                    for d in np_data:
+                        csv_writer.writerow(d)
+
+                with open(output_path + ".INFO", "w") as file_pointer:
+                    file_pointer.write("")
+
         except Exception:
             elogger.error(traceback.format_exc())
             slogger.error("Output handler didn't work properly. Check your error log: {}".format(log_path))
+            os.remove(fp.run_dir() + "output_handler.run")
             raise SystemExit
-
-        time.sleep(sleep_time)
 
 
 if __name__ == "__main__":
@@ -264,7 +233,13 @@ if __name__ == "__main__":
         3) While roof
             3-1) Get running process of anomaly detection module.
             3-2) Each IP address got it's process to integrate all output data from it's service type.
+            3-3) Gathered data is converted into pandas DataFrame and write into a file.
     """
+    parser = argparse.ArgumentParser(description='CDR output handler module.')
+
+    # [*]Hyper parameters.
+    parser.add_argument('--sleep', type=int, help='Sleep time.(Default:60)', default=60)
+
     # [*]Make Final output directory, if doesn't exist.
     directory_check()
 
@@ -291,5 +266,8 @@ if __name__ == "__main__":
         with open(fp.run_dir() + "output_handler.run", "w") as run_file:
             run_file.write(str(os.getpid()))
 
-    mk.debug_info("output_handler start running.")
+    args = parser.parse_args()
+    sleep_time = args.sleep
+
+    mk.debug_info("output_handler starts running.")
     main()

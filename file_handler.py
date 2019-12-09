@@ -1,7 +1,7 @@
 """
 @ File name: file_handler.py
-@ Version: 1.2.2
-@ Last update: 2019.DEC.06
+@ Version: 1.3.0
+@ Last update: 2019.DEC.09
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -27,7 +27,7 @@ class Clean(GracefulKiller):
         os.remove(fp.run_dir() + "file_handler.run")
         mk.debug_info("file_handler running end..")
         self.kill_now = True
-        raise SystemExit
+        # raise SystemExit
 
 
 def file_handler(in_file):
@@ -36,7 +36,14 @@ def file_handler(in_file):
     :param in_file: A String. Input file path.
     :return: None
     """
-    df = pd.read_csv(in_file, delimiter='|', header=None, names=['PGW_IP', 'DTmm', 'SVC_TYPE', 'UP', 'DN'])
+    df = pd.read_csv(in_file, delimiter='|', header=None, names=['PGW_IP', 'DTmm', 'SVC_TYPE', 'UP', 'DN'],
+                     dtype={
+                         "PGW_IP": str,
+                         "DTmm": str,
+                         "SVC_TYPE": str,
+                         "UP": float,
+                         "DN": float
+                     })
 
     # Drop Empty Rows
     elogger.warning("Empty filed data is occurred: \n{}".format(df[df.isnull().any(axis=1)]))
@@ -45,34 +52,37 @@ def file_handler(in_file):
     ip_addr = df['PGW_IP'].unique().tolist()
     svc_type = df['SVC_TYPE'].unique().tolist()
 
-    # NOTE: For every single services.
-    for svc in svc_type:
-        output_path = fp.input_dir(ip_addr[0], svc)
+    # NOTE: For every single IPs.
+    for ip in ip_addr:
+        # NOTE: For every single services.
+        for svc in svc_type:
+            output_path = fp.input_dir(ip, svc)
 
-        # NOTE: If output path doesn't exist, create one.
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
+            # NOTE: If output path doesn't exist, create one.
+            if not os.path.exists(output_path):
+                os.makedirs(output_path)
 
-        selected = df.loc[df['SVC_TYPE'] == svc].values.tolist()
+            selected = df.loc[(df['PGW_IP'] == ip) & (df['SVC_TYPE'] == svc)]
 
-        # [!]Exceptions; If duplicated service types are detected.
-        if len(selected) > 1:
-            elogger.warning("Two or more data is detected: {}".format(selected))
-        else:
-            selected = selected[0]
+            selected = selected.sort_values(['DTmm']).reset_index(drop=True)
+            selected = selected.values.tolist()
 
-        # [*]Output file path
-        output_path = output_path + '{}.DAT'.format(datetime.now())
+            if len(selected) > 0:
+                # [*]Output file path
+                output_path = output_path + '{}.DAT'.format(datetime.now())
 
-        with open(output_path, 'w') as out:
-            writer = csv.writer(out, delimiter='|')
-            writer.writerow(selected)
+                with open(output_path, 'w') as out:
+                    writer = csv.writer(out, delimiter='|')
+                    for s in selected:
+                        writer.writerow(s)
 
-        with open(output_path + ".INFO", "w") as out:
-            out.write("")
+                with open(output_path + ".INFO", "w") as out:
+                    out.write("")
 
-        # [*]Log
-        logger.info("Successfully write the file: {}".format(svc))
+                # [*]Log
+                logger.info("Successfully write the file: {}".format(svc))
+            else:
+                logger.info("Service type doesn't have any data: {}".format(svc))
 
     # [*]Log
     logger.info("Job is finished: {}".format(in_file))
