@@ -169,10 +169,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='CDR output handler module.')
 
     # [*]Hyper parameters.
-    parser.add_argument('--level', type=str, help='Set the log level', default="INFO")
+    parser.add_argument('--log', type=str, help='Set the log level', default="INFO")
     args = parser.parse_args()
 
-    LOG_LEVEL = args.level
+    LOG_LEVEL = args.log
 
     # [*]If file doesn't exist, make one.
     directory_check()
