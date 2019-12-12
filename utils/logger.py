@@ -26,15 +26,15 @@ class StreamLogger(object):
             mark.debug_info("Input param \'Log level\' is not proper: {}".format(level), m_type='ERROR')
 
         # [*]Logger mode
-        if level == "CRITICAL":
+        if log_level == "CRITICAL":
             self.logger.setLevel(logging.CRITICAL)
-        elif level == "ERROR":
+        elif log_level == "ERROR":
             self.logger.setLevel(logging.ERROR)
-        elif level == "WARNING":
+        elif log_level == "WARNING":
             self.logger.setLevel(logging.WARNING)
-        elif level == "INFO":
+        elif log_level == "INFO":
             self.logger.setLevel(logging.INFO)
-        elif level == "DEBUG":
+        elif log_level == "DEBUG":
             self.logger.setLevel(logging.DEBUG)
         else:
             self.logger.setLevel(logging.NOTSET)
@@ -66,15 +66,15 @@ class FileLogger(object):
             mark.debug_info("Input param \'Log level\' is not proper: {}".format(level), m_type='ERROR')
 
         # [*]Logger mode
-        if level == "CRITICAL":
+        if log_level == "CRITICAL":
             self.logger.setLevel(logging.CRITICAL)
-        elif level == "ERROR":
+        elif log_level == "ERROR":
             self.logger.setLevel(logging.ERROR)
-        elif level == "WARNING":
+        elif log_level == "WARNING":
             self.logger.setLevel(logging.WARNING)
-        elif level == "INFO":
+        elif log_level == "INFO":
             self.logger.setLevel(logging.INFO)
-        elif level == "DEBUG":
+        elif log_level == "DEBUG":
             self.logger.setLevel(logging.DEBUG)
         else:
             self.logger.setLevel(logging.NOTSET)

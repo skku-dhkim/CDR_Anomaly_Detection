@@ -1,7 +1,7 @@
 """
 @ File name: anomaly_detection.py
-@ Version: 1.3.0
-@ Last update: 2019.DEC.09
+@ Version: 1.3.1
+@ Last update: 2019.DEC.12
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -68,11 +68,15 @@ def data_loader(input_dir):
                          "DN": float
                      }).to_numpy()
 
+        logger.info("Data file is opened: {}".format(file))
         logger.info("Dataframe: {}".format(df))
 
         # [*]Remove loaded file list.
         os.remove(info_file_list[0])
         os.remove(file)
+
+        logger.debug(".INFO file is removed: {}".format(info_file_list[0]))
+        logger.debug(".DAT file is removed: {}".format(file))
 
         etime = timeit.default_timer()
         logger.info("Data loader required time: {}".format(etime-stime))
@@ -105,8 +109,10 @@ def detection(detector, data, output_dir):
             logger.info("Detection input data ({})".format(np_data))
             output_path = output_dir + '{}_{}_{}.DAT'.format(detector.ip, detector.svc_type, t_date[-1])
             detector.compute_anomaly_score(t_date, np_data, output_path)
+            logger.info("Threshold value: {}".format(detector.rrcf.threshold))
         else:
             dstore.put([d[1], d[3:]])
+            logger.debug("dstore: {}".format(dstore.indexList))
 
 
 def directory_check():
@@ -154,6 +160,7 @@ def main(ip, svc, t, l, seq, q):
     global slogger, logger, elogger, elog_path
     global today, tomorrow
     global dstore
+    global LOG_LEVEL
 
     slogger.debug("\n\t\t@Hyper parameters: \n"
                   "\t\t\t+IP addr: {}\n"
@@ -191,7 +198,7 @@ def main(ip, svc, t, l, seq, q):
             update_elog_path = file_path.svc_log_dir(ip, svc) + 'anomaly_detection_error_{}.log'.format(today)
 
             slogger = StreamLogger('anomaly_detection_stream_logger', level=SLOG_LEVEL).get_instance()
-            logger = FileLogger('anomaly_detection_info', log_path=update_log_path, level='INFO').get_instance()
+            logger = FileLogger('anomaly_detection_info', log_path=update_log_path, level=LOG_LEVEL).get_instance()
             elogger = FileLogger('anomaly_detection_error', log_path=update_elog_path, level='WARNING').get_instance()
 
         try:
@@ -231,6 +238,7 @@ if __name__ == '__main__':
     parser.add_argument('--seq', type=int, help='Sequences to observe.(Default: 6)', default=6)
     parser.add_argument('--leaves', type=int, help='Leaf size to memorize.(Default: 864)', default=864)
     parser.add_argument('--q', type=float, help='Quantile value.(Default: 0.99)', default=0.99)
+    parser.add_argument('--log', type=str, help='Set log level', default="INFO")
 
     args = parser.parse_args()
 
@@ -239,6 +247,7 @@ if __name__ == '__main__':
     OUTPUT_DIR = file_path.output_dir(args.ip, args.svc)
     FINAL_OUTPUT_DIR = file_path.final_output_path()
     RUN_DIR = file_path.run_dir()
+    LOG_LEVEL = args.log
 
     '''
         - slogger: Stream logger.
@@ -259,7 +268,7 @@ if __name__ == '__main__':
         - logger; Informative logger.
         - elogger; error logger.
     '''
-    logger = FileLogger('anomaly_detection_info', log_path=log_path, level='INFO').get_instance()
+    logger = FileLogger('anomaly_detection_info', log_path=log_path, level=LOG_LEVEL).get_instance()
     elogger = FileLogger('anomaly_detection_error', log_path=elog_path, level='WARNING').get_instance()
 
     if os.path.exists(RUN_DIR + '{}_{}.detector.run'.format(args.ip, args.svc)):

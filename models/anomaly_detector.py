@@ -42,7 +42,7 @@ class AnomalyDetector(object):
         # [*]Create RRCF realtime detection object.
         self.rrcf = RRCF(num_trees, sequences, leaves_size)
         # [*]Update duration of threshold value.
-        self.max_threshold_duration = 24 * 60 * 30  # 30 days sequences = (24 hours * 60 minutes * 30 days)
+        self.max_threshold_duration = sequences * 24 * 60 * 30  # 30 days sequences = (24 hours * 60 minutes * 30 days)
         # [*]Collecting anomaly scores
         self.anomaly_score = []
         # [*]Anomaly counter queue

@@ -1,7 +1,7 @@
 """
 @ File name: file_handler.py
-@ Version: 1.3.0
-@ Last update: 2019.DEC.09
+@ Version: 1.3.1
+@ Last update: 2019.DEC.12
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -16,6 +16,7 @@ import traceback
 import timeit
 import utils.marker as mk
 import shutil
+import argparse
 
 from datetime import datetime, timedelta
 from utils.logger import FileLogger
@@ -81,6 +82,7 @@ def file_handler(in_file):
 
                 # [*]Log
                 logger.info("Successfully write the file: {}".format(svc))
+                logger.debug("{} :: {}".format(svc, selected))
             else:
                 logger.info("Service type doesn't have any data: {}".format(svc))
 
@@ -93,11 +95,13 @@ def file_handler(in_file):
 
     # [*]If clearly finished, remove original file.
     os.remove(in_file)
+    logger.debug("Files are deleted successfully: {}".format(in_file))
 
 
 def main():
     global today, tomorrow
     global logger, elogger
+    global LOG_LEVEL
 
     while not killer.kill_now:
         # [*]If file doesn't exist, make one.
@@ -111,13 +115,14 @@ def main():
             update_log_path = fp.log_dir() + 'file_handler_{}.log'.format(today)
             update_elog_path = fp.log_dir() + 'file_handler_error_{}.log'.format(today)
 
-            logger = FileLogger('file_handler_info', log_path=update_log_path, level='INFO').get_instance()
+            logger = FileLogger('file_handler_info', log_path=update_log_path, level=LOG_LEVEL).get_instance()
             elogger = FileLogger('file_handler_error', log_path=update_elog_path, level='WARNING').get_instance()
 
         try:
             # [*]File read & check
             info_list = glob.glob(fp.original_input_path() + '*.INFO')
             if info_list:
+                logger.debug("Info files: {}".format(info_list))
                 stime = timeit.default_timer()
                 file = []
                 for il in info_list:
@@ -125,6 +130,7 @@ def main():
                     temp = il[:-5]
                     file.append(temp)
                 file = sorted(file)
+                logger.debug("Loaded files: {}".format(file))
 
                 for f in file:
                     file_handler(f)
@@ -132,6 +138,7 @@ def main():
                 for il in info_list:
                     # [*]If clearly finished, remove original file.
                     os.remove(il)
+                logger.debug("Info files are removed: {}".format(info_list))
                 etime = timeit.default_timer()
                 logger.info("Main job's running time: {}".format(etime-stime))
             time.sleep(1)
@@ -159,6 +166,13 @@ def directory_check():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='CDR output handler module.')
+
+    # [*]Hyper parameters.
+    parser.add_argument('--level', type=str, help='Set the log level', default="INFO")
+    args = parser.parse_args()
+
+    LOG_LEVEL = args.level
 
     # [*]If file doesn't exist, make one.
     directory_check()
@@ -174,7 +188,7 @@ if __name__ == '__main__':
         - logger; Informative logger.
         - elogger; error logger.
     '''
-    logger = FileLogger('file_handler_info', log_path=log_path, level='INFO').get_instance()
+    logger = FileLogger('file_handler_info', log_path=log_path, level=LOG_LEVEL).get_instance()
     elogger = FileLogger('file_handler_error', log_path=elog_path, level='WARNING').get_instance()
 
     if os.path.exists(fp.run_dir() + "file_handler.run"):

@@ -1,7 +1,7 @@
 """
 @ File name: output_handler.py
-@ Version: 1.3.0
-@ Last update: 2019.DEC.09
+@ Version: 1.3.1
+@ Last update: 2019.DEC.12
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -24,7 +24,6 @@ from datetime import datetime, timedelta
 from utils.graceful_killer import GracefulKiller
 
 STREAM_LOG_LEVEL = "WARNING"
-LOG_LEVEL = "INFO"
 
 
 class Clean(GracefulKiller):
@@ -51,6 +50,7 @@ def get_running_process():
             running_process[pgw_ip] = [service]
         else:
             running_process[pgw_ip].append(service)
+    logger.debug("Running process - {}".format(running_process))
     return running_process
 
 
@@ -78,8 +78,6 @@ def multi_process_by_ip(pid, svc_list, mq):
             temp = info[:-5]
             files.append(temp)
 
-        logger.info("Info files are deleted: {}".format(info_file))
-
         etime = timeit.default_timer()
         logger.debug("Extension removal time: {}".format(etime-stime))
 
@@ -97,6 +95,7 @@ def multi_process_by_ip(pid, svc_list, mq):
                     line.append(np.nan)
                 all_data.append(line)
 
+    logger.info("Collected data - {}".format(all_data))
     mq.put(all_data)
 
     # [*] Remove finished files.
@@ -104,6 +103,8 @@ def multi_process_by_ip(pid, svc_list, mq):
         alpha = f + ".INFO"
         os.remove(f)
         os.remove(alpha)
+        logger.debug("file is deleted: {}".format(f))
+        logger.debug("info files are deleted: {}".format(alpha))
 
 
 def directory_check():
@@ -123,6 +124,7 @@ def main():
     global elogger, logger, slogger
     global killer
     global sleep_time
+    global LOG_LEVEL
 
     while not killer.kill_now:
         directory_check()
@@ -155,8 +157,6 @@ def main():
                 continue
 
             slogger.debug("Got running process: {}".format(process_list))
-            logger.info("Got running process: {}".format(process_list))
-
             etime = timeit.default_timer()
             logger.info("'get_running_process' function required time: {}".format(etime-stime))
             # --------------------------------------
@@ -202,7 +202,7 @@ def main():
                     df_all_data.sort_values(by=["DTmm"], inplace=True)
                     df_all_data = df_all_data.reset_index(drop=True)
 
-                logger.debug(df_all_data)
+                logger.debug("Integrated data - {}\n".format(df_all_data))
 
                 dt = datetime.now()
                 dt = dt.strftime("%Y%m%d_%H%M")
@@ -239,9 +239,14 @@ if __name__ == "__main__":
 
     # [*]Hyper parameters.
     parser.add_argument('--sleep', type=int, help='Sleep time.(Default:60)', default=60)
+    parser.add_argument('--log', type=str, help='Set log level', default="INFO")
 
     # [*]Make Final output directory, if doesn't exist.
     directory_check()
+
+    args = parser.parse_args()
+    sleep_time = args.sleep
+    LOG_LEVEL = args.log
 
     '''
         Graceful killer
@@ -265,9 +270,6 @@ if __name__ == "__main__":
     else:
         with open(fp.run_dir() + "output_handler.run", "w") as run_file:
             run_file.write(str(os.getpid()))
-
-    args = parser.parse_args()
-    sleep_time = args.sleep
 
     mk.debug_info("output_handler starts running.")
     main()
