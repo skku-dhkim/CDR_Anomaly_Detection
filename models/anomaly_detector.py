@@ -1,7 +1,7 @@
 """
 @ File name: anomaly_detector.py
-@ Version: 1.2.0
-@ Last update: 2019.DEC.09
+@ Version: 1.3.0
+@ Last update: 2019.DEC.16
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -13,8 +13,6 @@ import config.file_path as fp
 
 from models.rrcf_cls import RRCF
 from utils.queue import Queue
-from utils.logger import FileLogger
-from datetime import datetime, timedelta
 
 LOG_LEVEL = "INFO"
 
@@ -54,13 +52,7 @@ class AnomalyDetector(object):
         self.ip = ip
         self.svc_type = svc_type
 
-        # [*]Logger.
-        self.log_path = None
-        self.logger = None
-        self.today = datetime.now().date()
-        self.tomorrow = self.today + timedelta(days=1)
-
-    def compute_anomaly_score(self, date, data, output_path):
+    def compute_anomaly_score(self, date, data, output_path, dlogger):
         """
         Calculate anomaly score, calculate threshold, and determine anomaly.
         :param date: A numpy array. Date and time of input training data.
@@ -90,7 +82,7 @@ class AnomalyDetector(object):
                             output_result['score'], output_result['estimate'], output_result['percentage'][-1]]
 
         # [*]log the result
-        self._logging(output_result)
+        dlogger.info(output_result)
 
         # [*]Write the result in a file.
         with open(output_path, 'w') as file:
@@ -114,7 +106,7 @@ class AnomalyDetector(object):
             self.rrcf.threshold = self.rrcf.calc_threshold(self.anomaly_score, self.quantile, with_data=False)
 
         # [*]After 30 days, re-calculates threshold.
-        if len(self.anomaly_score) % (self.max_threshold_duration * 2) == 0:
+        if len(self.anomaly_score) >= (self.max_threshold_duration * 2):
             start_date = self.anomaly_score[0][0]
             end_date = self.anomaly_score[self.max_threshold_duration][0]
 
@@ -187,28 +179,6 @@ class AnomalyDetector(object):
                     'percentage': 'Normal'
                 }
         return result
-
-    def _logging(self, result):
-        """
-        Log the original result.
-        :param result: A Dictionary. Unprocessed output result.
-        :return: None
-        """
-        if self.log_path is None or self.logger is None:
-            # [*]Create new log handler
-            self.log_path = fp.svc_log_dir(self.ip, self.svc_type) + 'anomaly_detector_{}.log'.format(self.today)
-            self.logger = FileLogger('anomaly_detector', log_path=self.log_path, level=LOG_LEVEL).get_instance()
-
-        # [*]If Day pass by create a new log file.
-        self.today = datetime.now().date()
-        if self.today >= self.tomorrow:
-            self.tomorrow = self.today + timedelta(days=1)
-
-            # [*]Log handler updates
-            self.log_path = fp.svc_log_dir(self.ip, self.svc_type) + 'anomaly_detector_{}.log'.format(self.today)
-            self.logger = FileLogger('file_handler_info', log_path=self.log_path, level=LOG_LEVEL).get_instance()
-
-        self.logger.info(result)
 
 
 class AnomayQueue(Queue):

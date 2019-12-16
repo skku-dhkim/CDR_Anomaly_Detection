@@ -22,6 +22,10 @@ def input_dir(PGW_IP, SVC_TYPE):
     return '{}/{}/{}/input/'.format(management_dir(), PGW_IP, SVC_TYPE)
 
 
+def instant_dir(PGW_IP, SVC_TYPE):
+    return '{}/{}/{}/instance/'.format(management_dir(), PGW_IP, SVC_TYPE)
+
+
 def complete_dir():
     return './COMPLETE/'
 
@@ -47,5 +51,5 @@ def run_dir():
 
 
 def backup_dir():
-    return "{}/BACKUP".format(mother_dir())
+    return "{}/BACKUP/".format(mother_dir())
 

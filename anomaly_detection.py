@@ -1,6 +1,6 @@
 """
 @ File name: anomaly_detection.py
-@ Version: 1.3.3
+@ Version: 1.3.4
 @ Last update: 2019.DEC.16
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
@@ -16,6 +16,8 @@ import numpy as np
 import traceback
 import timeit
 import utils.marker as mk
+import dill
+import pickle
 
 from models.anomaly_detector import AnomalyDetector
 from datetime import datetime, timedelta
@@ -108,7 +110,7 @@ def detection(detector, data, output_dir):
             np_data = np.array(np_data)
             logger.info("Detection input data ({})".format(np_data))
             output_path = output_dir + '{}_{}_{}.DAT'.format(detector.ip, detector.svc_type, t_date[-1])
-            detector.compute_anomaly_score(t_date, np_data, output_path)
+            detector.compute_anomaly_score(t_date, np_data, output_path, detector_logger)
             logger.info("Threshold value: {}".format(detector.rrcf.threshold))
         else:
             dstore.put([d[1], d[3:]])
@@ -137,6 +139,10 @@ def directory_check():
         os.makedirs(RUN_DIR)
         slogger.debug("RUNNING directory doesn't exist. Create one; ({})".format(RUN_DIR))
 
+    if not os.path.exists(INSTANCE_DIR):
+        os.makedirs(INSTANCE_DIR)
+        slogger.debug("INSTANCE_DIR directory doesn't exist. Create one; ({})".format(RUN_DIR))
+
 
 def main(ip, svc, t, l, seq, q):
     """
@@ -157,10 +163,11 @@ def main(ip, svc, t, l, seq, q):
     :param q: A Float. Quantile.
     :return: None.
     """
-    global slogger, logger, elogger, elog_path
+    global slogger, logger, elogger, detector_logger, elog_path
     global today, tomorrow
     global dstore
     global LOG_LEVEL
+    global anomaly_detector
 
     logger.info("\n\t\t@Hyper parameters: \n"
                 "\t\t\t+IP addr: {}\n"
@@ -176,12 +183,25 @@ def main(ip, svc, t, l, seq, q):
     killer = Clean(ip, svc)
 
     try:
-        anomaly_detector = AnomalyDetector(t, l, sequences=seq, quantile=q, ip=ip, svc_type=svc)
-        slogger.debug("Anomaly Detector successfully created.")
+        if os.path.exists(INSTANCE_DIR + "model.pkl"):
+            with open(INSTANCE_DIR+"model.pkl", "rb") as model:
+                anomaly_detector = pickle.load(model)
+            slogger.info("Model is already exist. Loaded successfully!")
+            logger.info("Anomaly Detector successfully loaded.")
+            logger.info(anomaly_detector.rrcf.forest)
+        else:
+            anomaly_detector = AnomalyDetector(t, l, sequences=seq, quantile=q, ip=ip, svc_type=svc)
+            logger.info("Anomaly Detector successfully created.")
+
+        if os.path.exists(INSTANCE_DIR + "dstore.pkl"):
+            with open(INSTANCE_DIR + "dstore.pkl", "rb") as ds:
+                dstore = pickle.load(ds)
+
     except Exception:
         elogger.error(traceback.format_exc())
         slogger.error("Anomaly Detector couldn't be created. Check your error log: {}".format(elog_path))
         os.remove(file_path.run_dir() + "{}_{}.detector.run".format(ip, svc))
+        model_save()
         raise SystemExit
 
     while not killer.kill_now:
@@ -196,10 +216,12 @@ def main(ip, svc, t, l, seq, q):
             # [*]Log handler updates
             update_log_path = file_path.svc_log_dir(ip, svc) + 'anomaly_detection_{}.log'.format(today)
             update_elog_path = file_path.svc_log_dir(ip, svc) + 'anomaly_detection_error_{}.log'.format(today)
+            update_dlog_path = file_path.svc_log_dir(ip, svc) + 'anomaly_detector_{}.log'.format(today)
 
             slogger = StreamLogger('anomaly_detection_stream_logger', level=SLOG_LEVEL).get_instance()
             logger = FileLogger('anomaly_detection_info', log_path=update_log_path, level=LOG_LEVEL).get_instance()
             elogger = FileLogger('anomaly_detection_error', log_path=update_elog_path, level='WARNING').get_instance()
+            detector_logger = FileLogger('anomaly_detector', log_path=update_dlog_path, level=LOG_LEVEL).get_instance()
 
         try:
             # [*]Loading the data and save it into queue.
@@ -209,6 +231,7 @@ def main(ip, svc, t, l, seq, q):
             elogger.error(traceback.format_exc())
             slogger.error("Data loader can't work properly. Check your error log: {}".format(elog_path))
             os.remove(file_path.run_dir() + "{}_{}.detector.run".format(ip, svc))
+            model_save()
             raise SystemExit
 
         try:
@@ -224,7 +247,20 @@ def main(ip, svc, t, l, seq, q):
             elogger.error(traceback.format_exc())
             slogger.error("Detection method didn't work properly. Check your error log: {}".format(elog_path))
             os.remove(file_path.run_dir() + "{}_{}.detector.run".format(ip, svc))
+            model_save()
             raise SystemExit
+
+    model_save()
+
+
+def model_save():
+    with open(INSTANCE_DIR + "model.pkl", "wb") as output:
+        dill.dump(anomaly_detector, output)
+        logger.info("Model is saved..")
+
+    with open(INSTANCE_DIR + "dstore.pkl", "wb") as output:
+        dill.dump(dstore, output)
+        logger.info("Data queue is saved : {}".format(dstore))
 
 
 if __name__ == '__main__':
@@ -248,6 +284,7 @@ if __name__ == '__main__':
     LOG_DIR = file_path.svc_log_dir(args.ip, args.svc)
     INPUT_DIR = file_path.input_dir(args.ip, args.svc)
     OUTPUT_DIR = file_path.output_dir(args.ip, args.svc)
+    INSTANCE_DIR = file_path.instant_dir(args.ip, args.svc)
     FINAL_OUTPUT_DIR = file_path.final_output_path()
     RUN_DIR = file_path.run_dir()
     LOG_LEVEL = args.log
@@ -266,6 +303,7 @@ if __name__ == '__main__':
 
     log_path = file_path.svc_log_dir(args.ip, args.svc) + 'anomaly_detection_{}.log'.format(today)
     elog_path = file_path.svc_log_dir(args.ip, args.svc) + 'anomaly_detection_error_{}.log'.format(today)
+    dlog_path = file_path.svc_log_dir(args.ip, args.svc) + 'anomaly_detector_{}.log'.format(today)
 
     '''
         - logger; Informative logger.
@@ -273,6 +311,7 @@ if __name__ == '__main__':
     '''
     logger = FileLogger('anomaly_detection_info', log_path=log_path, level=LOG_LEVEL).get_instance()
     elogger = FileLogger('anomaly_detection_error', log_path=elog_path, level='WARNING').get_instance()
+    detector_logger = FileLogger('anomaly_detector', log_path=dlog_path, level=LOG_LEVEL).get_instance()
 
     if os.path.exists(RUN_DIR + '{}_{}.detector.run'.format(args.ip, args.svc)):
         elogger.error("Anomaly detector of {}:{} is already running. Program exit.".format(args.ip, args.svc))
