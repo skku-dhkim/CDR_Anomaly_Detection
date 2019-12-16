@@ -1,7 +1,7 @@
 """
 @ File name: file_handler.py
-@ Version: 1.3.1
-@ Last update: 2019.DEC.12
+@ Version: 1.3.2
+@ Last update: 2019.DEC.16
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -101,7 +101,7 @@ def file_handler(in_file):
 def main():
     global today, tomorrow
     global logger, elogger
-    global LOG_LEVEL
+    global LOG_LEVEL, ID
 
     while not killer.kill_now:
         # [*]If file doesn't exist, make one.
@@ -168,10 +168,14 @@ def directory_check():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='CDR output handler module.')
 
+    # [*]Mandatory parameter.
+    parser.add_argument('--id', type=str, help='ID of ML processor', required=True)
+
     # [*]Hyper parameters.
     parser.add_argument('--log', type=str, help='Set the log level', default="INFO")
     args = parser.parse_args()
 
+    fp.IDX = args.id
     LOG_LEVEL = args.log
 
     # [*]If file doesn't exist, make one.

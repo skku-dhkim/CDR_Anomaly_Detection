@@ -1,5 +1,13 @@
+IDX = None
+
+
+def mother_dir():
+    return "../SVCTYPE_{}".format(IDX)
+    # return "/OPER/ML/SVCTYPE_{}".format(IDX)
+
+
 def management_dir():
-    return "./management"
+    return "{}/management".format(mother_dir())
 
 
 def svc_log_dir(PGW_IP, SVC_TYPE):
@@ -19,11 +27,11 @@ def complete_dir():
 
 
 def original_input_path():
-    return './INPUT/'
+    return '{}/INPUT/'.format(mother_dir())
 
 
 def final_output_path():
-    return "./OUTPUT/"
+    return "{}/OUTPUT/".format(mother_dir())
 
 
 def log_dir():
@@ -39,5 +47,5 @@ def run_dir():
 
 
 def backup_dir():
-    # return '/OPER/ML/SVCTYPE/BACKUP/'
-    return './BACKUP/'
+    return "{}/BACKUP".format(mother_dir())
+

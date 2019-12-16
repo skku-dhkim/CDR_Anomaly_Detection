@@ -1,7 +1,7 @@
 """
 @ File name: output_handler.py
-@ Version: 1.3.1
-@ Last update: 2019.DEC.12
+@ Version: 1.3.2
+@ Last update: 2019.DEC.16
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -124,7 +124,7 @@ def main():
     global elogger, logger, slogger
     global killer
     global sleep_time
-    global LOG_LEVEL
+    global LOG_LEVEL, ID
 
     while not killer.kill_now:
         directory_check()
@@ -237,16 +237,22 @@ if __name__ == "__main__":
     """
     parser = argparse.ArgumentParser(description='CDR output handler module.')
 
+    # [*]Mandatory parameters.
+    parser.add_argument('--id', type=str, help='ID of ML processor', required=True)
+
     # [*]Hyper parameters.
     parser.add_argument('--sleep', type=int, help='Sleep time.(Default:60)', default=60)
     parser.add_argument('--log', type=str, help='Set log level', default="INFO")
 
-    # [*]Make Final output directory, if doesn't exist.
-    directory_check()
-
     args = parser.parse_args()
+
+    fp.IDX = args.id
+
     sleep_time = args.sleep
     LOG_LEVEL = args.log
+
+    # [*]Make Final output directory, if doesn't exist.
+    directory_check()
 
     '''
         Graceful killer
