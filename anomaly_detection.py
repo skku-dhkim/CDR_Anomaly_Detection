@@ -1,6 +1,6 @@
 """
 @ File name: anomaly_detection.py
-@ Version: 1.3.2
+@ Version: 1.3.3
 @ Last update: 2019.DEC.16
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
@@ -61,12 +61,12 @@ def data_loader(input_dir):
         # [*]Remove .INFO extension.
         file = file[:-5]
         df = pd.read_csv(file, delimiter='|', names=['PGW_IP', 'DTmm', 'SVC_TYPE', 'UP', 'DN'], dtype={
-                         "PGW_IP": str,
-                         "DTmm": str,
-                         "SVC_TYPE": str,
-                         "UP": float,
-                         "DN": float
-                     }).to_numpy()
+            "PGW_IP": str,
+            "DTmm": str,
+            "SVC_TYPE": str,
+            "UP": float,
+            "DN": float
+        }).to_numpy()
 
         logger.info("Data file is opened: {}".format(file))
         logger.info("Dataframe: {}".format(df))
@@ -79,7 +79,7 @@ def data_loader(input_dir):
         logger.debug(".DAT file is removed: {}".format(file))
 
         etime = timeit.default_timer()
-        logger.info("Data loader required time: {}".format(etime-stime))
+        logger.info("Data loader required time: {}".format(etime - stime))
 
         return df
     return None
@@ -162,13 +162,13 @@ def main(ip, svc, t, l, seq, q):
     global dstore
     global LOG_LEVEL
 
-    slogger.debug("\n\t\t@Hyper parameters: \n"
-                  "\t\t\t+IP addr: {}\n"
-                  "\t\t\t+SVC type: {}\n"
-                  "\t\t\t+Trees: {}\n"
-                  "\t\t\t+Leaves: {}\n"
-                  "\t\t\t+Sequences: {}\n"
-                  "\t\t\t+Quantile: {}".format(ip, svc, t, l, seq, q))
+    logger.info("\n\t\t@Hyper parameters: \n"
+                "\t\t\t+IP addr: {}\n"
+                "\t\t\t+SVC type: {}\n"
+                "\t\t\t+Trees: {}\n"
+                "\t\t\t+Leaves: {}\n"
+                "\t\t\t+Sequences: {}\n"
+                "\t\t\t+Quantile: {}".format(ip, svc, t, l, seq, q))
 
     '''
         Initialize Graceful Killer
@@ -217,7 +217,7 @@ def main(ip, svc, t, l, seq, q):
                 # [*]Anomaly Detection.
                 detection(anomaly_detector, data, OUTPUT_DIR)
                 etime = timeit.default_timer()
-                logger.info("Detection required time: {}".format(etime-stime))
+                logger.info("Detection required time: {}".format(etime - stime))
                 slogger.debug("Detection is normally worked.")
             time.sleep(1)
         except Exception:
