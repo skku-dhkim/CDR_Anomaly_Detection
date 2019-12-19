@@ -1,7 +1,7 @@
 """
 @ File name: output_handler.py
-@ Version: 1.3.2
-@ Last update: 2019.DEC.16
+@ Version: 1.3.5
+@ Last update: 2019.DEC.19
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -32,6 +32,7 @@ class Clean(GracefulKiller):
         os.remove(fp.run_dir() + "output_handler.run")
         mk.debug_info("output_handler running end..")
         self.kill_now = True
+        logger.debug("Program killed by signal.")
 
 
 def get_running_process():
@@ -111,12 +112,15 @@ def directory_check():
     # [*]Make Final output directory, if doesn't exist.
     if not os.path.exists(fp.final_output_path()):
         os.makedirs(fp.final_output_path())
+        mk.debug_info("OUTPUT dir doesn't exist create one. - {}".format(fp.final_output_path()))
 
     if not os.path.exists(fp.run_dir()):
         os.makedirs(fp.run_dir())
+        mk.debug_info("running dir doesn't exist create one. - {}".format(fp.run_dir()))
 
     if not os.path.exists(fp.log_dir()):
         os.makedirs(fp.log_dir())
+        mk.debug_info("log dir doesn't exist create one. - {}".format(fp.log_dir()))
 
 
 def main():
@@ -214,10 +218,11 @@ def main():
                     np_data = df_all_data.to_numpy()
                     for d in np_data:
                         csv_writer.writerow(d)
+                logger.info("File is written {}".format(output_path))
 
                 with open(output_path + ".INFO", "w") as file_pointer:
                     file_pointer.write("")
-
+                logger.info("INFO file is written {}".format(output_path + ".INFO"))
         except Exception:
             elogger.error(traceback.format_exc())
             slogger.error("Output handler didn't work properly. Check your error log: {}".format(log_path))

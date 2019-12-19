@@ -1,7 +1,7 @@
 """
 @ File name: anomaly_detection.py
-@ Version: 1.3.4
-@ Last update: 2019.DEC.16
+@ Version: 1.3.5
+@ Last update: 2019.DEC.19
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -39,6 +39,7 @@ class Clean(GracefulKiller):
         os.remove(file_path.run_dir() + "{}_{}.detector.run".format(self.ip, self.svc))
         slogger.info("anomaly detector - {}:{} is end.".format(self.ip, self.svc))
         self.kill_now = True
+        logger.debug("Program killed by signal.")
         # raise SystemExit
 
 

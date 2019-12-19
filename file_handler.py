@@ -1,7 +1,7 @@
 """
 @ File name: file_handler.py
-@ Version: 1.3.2
-@ Last update: 2019.DEC.16
+@ Version: 1.3.5
+@ Last update: 2019.DEC.19
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -28,6 +28,7 @@ class Clean(GracefulKiller):
         os.remove(fp.run_dir() + "file_handler.run")
         mk.debug_info("file_handler running end..")
         self.kill_now = True
+        logger.debug("Program killed by signal.")
         # raise SystemExit
 
 
@@ -81,7 +82,8 @@ def file_handler(in_file):
                     out.write("")
 
                 # [*]Log
-                logger.info("Successfully write the file: {}".format(svc))
+                logger.info("Successfully write the file: {}".format(output_path))
+                logger.debug("Successfully write the info file: {}".format(output_path + ".INFO"))
                 logger.debug("{} :: {}".format(svc, selected))
             else:
                 logger.info("Service type doesn't have any data: {}".format(svc))
@@ -92,6 +94,7 @@ def file_handler(in_file):
     # [*]copy the file into backup directory.
     file_name = in_file.split("/")[-1]
     shutil.copyfile(in_file, fp.backup_dir()+file_name)
+    logger.debug("{} File is backed up into \'{}\'".format(file_name, fp.backup_dir()))
 
     # [*]If clearly finished, remove original file.
     os.remove(in_file)
@@ -154,15 +157,23 @@ def directory_check():
     # [*]If file doesn't exist, make one.
     if not os.path.exists(fp.log_dir()):
         os.makedirs(fp.log_dir())
+        mk.debug_info("Log dir is not exist create one - {}".format(fp.log_dir()), "INFO")
 
     if not os.path.exists(fp.run_dir()):
         os.makedirs(fp.run_dir())
+        mk.debug_info("running dir is not exist create one - {}".format(fp.run_dir()), "INFO")
 
     if not os.path.exists(fp.original_input_path()):
         os.makedirs(fp.original_input_path())
+        mk.debug_info("INPUT dir is not exist create one - {}".format(fp.original_input_path()), "INFO")
 
     if not os.path.exists(fp.final_output_path()):
         os.makedirs(fp.final_output_path())
+        mk.debug_info("OUTPUT dir is not exist create one - {}".format(fp.final_output_path()), "INFO")
+
+    if not os.path.exists(fp.backup_dir()):
+        os.makedirs(fp.backup_dir())
+        mk.debug_info("BACKUP dir is not exist create one - {}".format(fp.backup_dir()), "INFO")
 
 
 if __name__ == '__main__':
