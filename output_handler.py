@@ -1,7 +1,7 @@
 """
 @ File name: output_handler.py
-@ Version: 1.3.5
-@ Last update: 2019.DEC.19
+@ Version: 1.3.6
+@ Last update: 2020.JAN.15
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='CDR output handler module.')
 
     # [*]Mandatory parameters.
-    parser.add_argument('--id', type=str, help='ID of ML processor', required=True)
+    parser.add_argument('--id', type=str, help='ID of ML processor', default="main")
 
     # [*]Hyper parameters.
     parser.add_argument('--sleep', type=int, help='Sleep time.(Default:60)', default=60)

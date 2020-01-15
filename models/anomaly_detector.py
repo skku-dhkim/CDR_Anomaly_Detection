@@ -1,7 +1,7 @@
 """
 @ File name: anomaly_detector.py
-@ Version: 1.3.1
-@ Last update: 2019.DEC.19
+@ Version: 1.3.2
+@ Last update: 2020.JAN.15
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -93,7 +93,6 @@ class AnomalyDetector(object):
         with open(output_path + ".INFO", 'w') as file:
             file.write("")
             dlogger.debug("{} is written successfully.".format(output_path+".INFO"))
-
 
     def _calculate_threshold(self):
         """

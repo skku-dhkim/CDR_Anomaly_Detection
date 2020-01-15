@@ -1,7 +1,7 @@
 """
 @ File name: queue.py
-@ Version: 1.1.0
-@ Last update: 2019.Nov.01
+@ Version: 1.1.1
+@ Last update: 2020.JAN.15
 @ Author: DH.KIM
 @ Company: Ntels Co., Ltd
 """
@@ -27,7 +27,7 @@ class Queue(object):
                 - None or Error if buffer is full.
         """
         if self.size != 0:
-            if len(self.indexList) + 1 > self.size:
+            if len(self.indexList) > self.size:
                 marker.debug_info("Buffer overflow. Queue should not exceed the size.", m_type="ERROR")
                 raise SystemExit()
         self.indexList.append(index)
